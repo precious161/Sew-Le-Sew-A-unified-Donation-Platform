@@ -21,7 +21,7 @@ enum Status {
 
 model User {
   id            String   @id @default(uuid())
-  FristName     String
+  FirstName     String
   LastName      String
   EmailAddress  String   @unique
   password      String
