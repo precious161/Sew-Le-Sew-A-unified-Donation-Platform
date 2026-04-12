@@ -31,3 +31,11 @@ model User {
   createdAt     DateTime @default(now())
 
 }
+
+model BlacklistedToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+}
+
