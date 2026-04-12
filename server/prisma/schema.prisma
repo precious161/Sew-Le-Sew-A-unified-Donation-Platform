@@ -8,7 +8,7 @@ datasource db {
 }
 
 enum Role {
-  ADMIN
+  RED_CROSS_ADMIN
   DONOR
   RECIPIENT
 }

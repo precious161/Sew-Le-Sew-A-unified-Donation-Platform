@@ -6,7 +6,11 @@ import { config } from "../config/env.js";
 
 export const signUp = async (req, res) => {
   try {
-    const { FirstName, LastName, EmailAddress, password, phoneNumber } = req.body;
+    const { FirstName, LastName, EmailAddress, password, phoneNumber,role } = req.body;
+
+    const allowedRoles= ["DONOR","RECEPIENT"];
+    const finalRole= allowedRoles.includes(role) ? role : "DONOR";
+
 
     const existingUser = await prisma.user.findUnique({
       where: { EmailAddress },
@@ -28,6 +32,7 @@ export const signUp = async (req, res) => {
         EmailAddress,
         password: hashedPassword,
         phoneNumber,
+        role: finalRole,
       },
     });
 
