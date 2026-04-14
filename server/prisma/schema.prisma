@@ -29,7 +29,7 @@ model User {
   role          Role     @default(DONOR)
   status        Status   @default(ACTIVE)
   createdAt     DateTime @default(now())
-
+  notification  Notification[]
 }
 
 model BlacklistedToken {
@@ -39,3 +39,12 @@ model BlacklistedToken {
   expiresAt DateTime
 }
 
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  message   String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
