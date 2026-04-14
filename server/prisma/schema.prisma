@@ -1,0 +1,50 @@
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  RED_CROSS_ADMIN
+  DONOR
+  RECIPIENT
+}
+
+enum Status {
+  ACTIVE
+  SUSPENDED
+  DEACTIVATED
+}
+
+model User {
+  id            String   @id @default(uuid())
+  FirstName     String
+  LastName      String
+  EmailAddress  String   @unique
+  password      String
+  phoneNumber   String?
+  role          Role     @default(DONOR)
+  status        Status   @default(ACTIVE)
+  createdAt     DateTime @default(now())
+  notification  Notification[]
+}
+
+model BlacklistedToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+}
+
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  message   String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
