@@ -3,13 +3,20 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { StatusCodes } from 'http-status-codes';
 
+// Import Auth Routes
+import authRoutes from "./routes/authRoutes.js";
+
+// Import User-management routes
+import userRoutes from "./routes/users/index.js";
+
 dotenv.config();
 
- const app=express();
+const app=express();
 
 app.use(cors());
 app.use(express.json());
 
+// Main Route
 app.get('/',async (req,res)=>{
 
   try{
@@ -24,6 +31,12 @@ catch(error){
      })
 }
 });
+
+// Auth Routes
+app.use('/api/auth',authRoutes);
+
+// User Routes
+app.use("/api/users", userRoutes);
 
 app.use((req,res)=>{
    res.status(StatusCodes.NOT_FOUND).json({
