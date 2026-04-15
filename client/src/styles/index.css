@@ -1,0 +1,10 @@
+@import "tailwindcss/base";
+@import "tailwindcss/components";
+@import "tailwindcss/utilities";  
+
+
+@layer components {
+  .btn-primary {
+    @apply px-6 py-2 bg-accent text-white rounded-lg shadow-lg hover:scale-105 transition-transform;
+  }
+}
