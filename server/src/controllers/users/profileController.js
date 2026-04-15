@@ -15,17 +15,22 @@ export const viewProfile = async (req, res) => {
         status: true,
       },
     });
-    return res.status(StatusCodes.OK).json(user);
+
+    return res.status(StatusCodes.OK).json({
+      success: true,
+      data: user
+    });
   } catch (error) {
-    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: "Error fetching profile" });
+    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+      success: false,
+      message: "Error fetching profile"
+    });
   }
 };
 
 export const updateProfile = async (req, res) => {
   try {
     const { FirstName, LastName, phoneNumber, role } = req.body;
-
-
 
     let updatedRole = req.user.role;
 
@@ -35,6 +40,7 @@ export const updateProfile = async (req, res) => {
         updatedRole = role;
       } else if (role === "RED_CROSS_ADMIN") {
         return res.status(StatusCodes.FORBIDDEN).json({
+          success: false,
           message: "You cannot promote yourself to Admin. Contact an administrator."
         });
       }
@@ -59,11 +65,13 @@ export const updateProfile = async (req, res) => {
     });
 
     return res.status(StatusCodes.OK).json({
+      success: true,
       message: "Profile updated successfully",
-      user: updatedUser
+      data: updatedUser
     });
   } catch (error) {
     return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+      success: false,
       message: "Update failed"
     });
   }

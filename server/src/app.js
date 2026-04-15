@@ -13,7 +13,11 @@ dotenv.config();
 
 const app=express();
 
-app.use(cors());
+app.use(cors({
+  origin: "http://localhost:5173",
+  methods: ["GET", "POST", "PATCH"],
+  allowedHeaders: ["Content-Type", "Authorization"]
+}));
 app.use(express.json());
 
 // Main Route
@@ -21,11 +25,13 @@ app.get('/',async (req,res)=>{
 
   try{
     res.status(StatusCodes.OK).json({
+      success:true,
       message: "Sew Le Sew API is running smoothly"
     });
   }
 catch(error){
      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+      success:false,
       error: "Something went wrong.",
       details: error.message
      })
@@ -40,6 +46,7 @@ app.use("/api/users", userRoutes);
 
 app.use((req,res)=>{
    res.status(StatusCodes.NOT_FOUND).json({
+    success: false,
     status:'Fail',
     message:`Route ${req.originalUrl} not found`
    });
