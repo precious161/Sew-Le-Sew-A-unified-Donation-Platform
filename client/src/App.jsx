@@ -1,34 +1,42 @@
-import React from 'react';
+import React, { useContext } from 'react';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { AuthContext } from './context/AuthContext';
+import LoginPage from './pages/auth/LoginPage';
+import SignupPage from './pages/auth/SignupPage';
+import Dashboard from './pages/Dashboard';
+import ProfilePage from './pages/Profile';
+import AdminDashboard from './pages/admin/AdminDashboard';
+import ProtectedRoute from './components/ProtectedRoute'; // Import the guard
 
 function App() {
+  const { user } = useContext(AuthContext);
+  const location = useLocation();
+
+  console.log("Subsystem Access:", location.pathname, "| Identity:", user?.Role || "Guest");
+
   return (
-    <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
-      {/* Test Card */}
-      <div className="max-w-md w-full bg-slate-900 border border-slate-800 p-8 rounded-2xl shadow-2xl text-center">
+    <div className="App">
+      <Routes>
+        {/* PUBLIC ROUTES: Registration & Account Management */}
+        <Route path="/login" element={!user ? <LoginPage /> : <Navigate to="/dashboard" replace />} />
+        <Route path="/signup" element={!user ? <SignupPage /> : <Navigate to="/dashboard" replace />} />
         
-        {/* Test: Custom Accent Color & Font Weight */}
-        <h1 className="text-4xl font-black text-accent mb-4 tracking-tight">
-          Sew Le Sew
-        </h1>
-        
-        {/* Test: Standard Utilities & Text Opacity */}
-        <p className="text-slate-400 mb-8">
-          If you see this card centered with a purple title, 
-          <span className="text-green-400 font-bold"> Tailwind is 100% Active.</span>
-        </p>
+        {/* PRIVATE ROUTES: Require Login (Donor & Recipient & Admin) */}
+        <Route element={<ProtectedRoute allowedRoles={['Donor', 'Recipient', 'Admin']} />}>
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/profile" element={<ProfilePage />} />
+        </Route>
 
-        {/* Test: Custom Component Layer (@apply test) */}
-        <button className="btn-primary">
-          Verify Deployment
-        </button>
+        {/* ADMIN ONLY ROUTES: Account & Role Control Interface */}
+        <Route element={<ProtectedRoute allowedRoles={['Admin']} />}>
+          <Route path="/admin/control" element={<AdminDashboard />} />
+        </Route>
 
-        {/* Test: Responsive Grid/Flex */}
-        <div className="mt-8 flex justify-center gap-2">
-          <div className="h-2 w-8 bg-accent rounded-full animate-pulse"></div>
-          <div className="h-2 w-2 bg-slate-700 rounded-full"></div>
-          <div className="h-2 w-2 bg-slate-700 rounded-full"></div>
-        </div>
-      </div>
+        {/* REDIRECTS */}
+        <Route path="/" element={<Navigate to="/login" replace />} />
+        {/* If user tries a random URL, send them to dashboard if logged in, else login */}
+        <Route path="*" element={<Navigate to={user ? "/dashboard" : "/login"} replace />} />
+      </Routes>
     </div>
   );
 }
