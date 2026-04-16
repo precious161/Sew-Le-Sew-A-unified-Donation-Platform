@@ -7,8 +7,13 @@ export default {
   theme: {
     extend: {
       colors: {
+        'medical-red': '#C70417',
         accent: "#aa3bff",
       },
+
+      screens: {
+        'desktop': '1100px',
+      }
     },
   },
   plugins: [],

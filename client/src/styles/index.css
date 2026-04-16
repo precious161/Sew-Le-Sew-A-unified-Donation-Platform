@@ -8,3 +8,25 @@
     @apply px-6 py-2 bg-accent text-white rounded-lg shadow-lg hover:scale-105 transition-transform;
   }
 }
+
+custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+/* 2. Style the scrollbar track (the background) using Tailwind color slate-100 */
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #f1f5f9; 
+  border-radius: 10px;
+  margin: 15px 0; /* Keeps the scrollbar away from the rounded edges of the card */
+}
+
+/* 3. Style the scrollbar thumb (the part you drag) using Tailwind color slate-300 */
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #cbd5e1; /* The specific grey color */
+  border-radius: 10px;
+}
+
+/* 4. Handle on hover (the darker grey when you use it) */
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8; /* slate-400 */
+}
