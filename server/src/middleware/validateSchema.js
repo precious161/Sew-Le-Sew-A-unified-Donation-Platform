@@ -6,8 +6,9 @@ export const validate= (schema) => (req,res,next)=>{
   if(!result.success){
 
     const zodErrors = result.error?.errors || [];
+    console.log("Incoming Body:", req.body);
     console.log("Validation Failed for:", req.body.EmailAddress);
-
+    console.log("Zod Error:", result.error.format());
 
     return res.status(StatusCodes.BAD_REQUEST).json({
       status:"Fail",

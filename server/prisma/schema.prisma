@@ -8,15 +8,14 @@ datasource db {
 }
 
 enum Role {
-  RED_CROSS_ADMIN
-  DONOR
-  RECIPIENT
+  Red_Cross_Admin
+  Donor
+  Recipient
 }
 
 enum Status {
-  ACTIVE
-  SUSPENDED
-  DEACTIVATED
+  Active
+  Deactivated
 }
 
 model User {
@@ -24,10 +23,10 @@ model User {
   FirstName     String
   LastName      String
   EmailAddress  String   @unique
-  password      String
-  phoneNumber   String?
-  role          Role     @default(DONOR)
-  status        Status   @default(ACTIVE)
+  Password      String
+  PhoneNumber   String?
+  Role          Role     @default(Donor)
+  status        Status   @default(Active)
   createdAt     DateTime @default(now())
   notification  Notification[]
 }

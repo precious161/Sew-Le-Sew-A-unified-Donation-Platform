@@ -14,9 +14,9 @@ async function main() {
       EmailAddress: adminEmail,
       FirstName: "System",
       LastName: "Administrator",
-      password: hashedPassword,
-      role: "RED_CROSS_ADMIN",
-      status: "ACTIVE",
+      Password: hashedPassword,
+      Role: "Red_Cross_Admin",
+      status: "Active",
     },
   });
 

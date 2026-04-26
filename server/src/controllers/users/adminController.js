@@ -10,7 +10,7 @@ export const monitorActivity = async (req, res) => {
         FirstName: true,
         LastName: true,
         EmailAddress: true,
-        role: true,
+        Role: true,
         status: true,
       },
     });
@@ -34,7 +34,7 @@ export const deactivateUser = async (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
 
-    const validStatuses = ["ACTIVE", "SUSPENDED", "DEACTIVATED"];
+    const validStatuses = ["Active", "Deactivated"];
     if (!validStatuses.includes(status)) {
       return res.status(StatusCodes.BAD_REQUEST).json({
         success: false,
@@ -63,10 +63,10 @@ export const deactivateUser = async (req, res) => {
 export const assignRole = async (req, res) => {
   try {
     const { id } = req.params;
-    const { role } = req.body;
+    const { Role } = req.body;
 
-    const validRoles = ["RED_CROSS_ADMIN", "DONOR", "RECIPIENT"];
-    if (!validRoles.includes(role)) {
+    const validRoles = ["Red_Cross_Admin", "Donor", "Recipient"];
+    if (!validRoles.includes(Role)) {
       return res.status(StatusCodes.BAD_REQUEST).json({
         success: false,
         message: "Invalid role value"
@@ -75,13 +75,13 @@ export const assignRole = async (req, res) => {
 
     const updatedUser = await prisma.user.update({
       where: { id },
-      data: { role },
-      select: { id: true, role: true }
+      data: { Role },
+      select: { id: true, Role: true }
     });
 
     return res.status(StatusCodes.OK).json({
       success: true,
-      message: `User role updated to ${role}`,
+      message: `User role updated to ${Role}`,
       data: updatedUser
     });
   } catch (error) {

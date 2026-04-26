@@ -6,10 +6,10 @@ import { config } from "../config/env.js";
 
 export const signUp = async (req, res) => {
   try {
-    const { FirstName, LastName, EmailAddress, password, phoneNumber, role } = req.body;
+    const { FirstName, LastName, EmailAddress, Password, PhoneNumber, Role } = req.body;
 
-    const allowedRoles = ["DONOR", "RECIPIENT"];
-    const finalRole = allowedRoles.includes(role) ? role : "DONOR";
+    const allowedRoles = ["Donor", "Recipient"];
+    const finalRole = allowedRoles.includes(Role) ? Role : "Donor";
 
     const existingUser = await prisma.user.findUnique({
       where: { EmailAddress },
@@ -23,16 +23,16 @@ export const signUp = async (req, res) => {
     }
 
     const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
+    const hashedPassword = await bcrypt.hash(Password, salt);
 
     const newUser = await prisma.user.create({
       data: {
         FirstName,
         LastName,
         EmailAddress,
-        password: hashedPassword,
-        phoneNumber,
-        role: finalRole,
+        Password: hashedPassword,
+        PhoneNumber,
+        Role: finalRole,
       },
     });
 
@@ -47,7 +47,7 @@ export const signUp = async (req, res) => {
           id: newUser.id,
           FirstName: newUser.FirstName,
           EmailAddress: newUser.EmailAddress,
-          role: newUser.role
+          Role: newUser.Role
         }
       }
     });
@@ -61,7 +61,7 @@ export const signUp = async (req, res) => {
 
 export const login = async (req, res) => {
   try {
-    const { EmailAddress, password } = req.body;
+    const { EmailAddress, Password } = req.body;
 
     const user = await prisma.user.findUnique({
       where: { EmailAddress },
@@ -74,14 +74,14 @@ export const login = async (req, res) => {
       });
     }
 
-    if (user.status !== "ACTIVE") {
+    if (user.status !== "Active") {
       return res.status(StatusCodes.FORBIDDEN).json({
         success: false,
         message: "Account is suspended or deactivated. Contact support.",
       });
     }
 
-    const isPasswordCorrect = await bcrypt.compare(password, user.password);
+    const isPasswordCorrect = await bcrypt.compare(Password, user.Password);
 
     if (!isPasswordCorrect) {
       return res.status(StatusCodes.UNAUTHORIZED).json({
@@ -101,7 +101,7 @@ export const login = async (req, res) => {
           id: user.id,
           FirstName: user.FirstName,
           EmailAddress: user.EmailAddress,
-          role: user.role,
+          Role: user.Role,
         }
       }
     });

@@ -10,8 +10,8 @@ export const viewProfile = async (req, res) => {
         FirstName: true,
         LastName: true,
         EmailAddress: true,
-        phoneNumber: true,
-        role: true,
+        PhoneNumber: true,
+        Role: true,
         status: true,
       },
     });
@@ -30,15 +30,15 @@ export const viewProfile = async (req, res) => {
 
 export const updateProfile = async (req, res) => {
   try {
-    const { FirstName, LastName, phoneNumber, role } = req.body;
+    const { FirstName, LastName, PhoneNumber, Role } = req.body;
 
-    let updatedRole = req.user.role;
+    let updatedRole = req.user.Role;
 
-    if (role) {
-      const selfAssignRoles = ["DONOR", "RECIPIENT"];
-      if (selfAssignRoles.includes(role)) {
-        updatedRole = role;
-      } else if (role === "RED_CROSS_ADMIN") {
+    if (Role) {
+      const selfAssignRoles = ["Donor", "Recipient"];
+      if (selfAssignRoles.includes(Role)) {
+        updatedRole = Role;
+      } else if (Role === "Red_Cross_Admin") {
         return res.status(StatusCodes.FORBIDDEN).json({
           success: false,
           message: "You cannot promote yourself to Admin. Contact an administrator."
@@ -51,16 +51,16 @@ export const updateProfile = async (req, res) => {
       data: {
         FirstName,
         LastName,
-        phoneNumber,
-        role: updatedRole
+        PhoneNumber,
+        Role: updatedRole
       },
       select: {
         id: true,
         FirstName: true,
         LastName: true,
         EmailAddress: true,
-        phoneNumber: true,
-        role: true
+        PhoneNumber: true,
+        Role: true
       }
     });
 
