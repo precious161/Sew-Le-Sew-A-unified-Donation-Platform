@@ -7,6 +7,8 @@ datasource db {
   provider = "postgresql"
 }
 
+// User Management Subsystem Tables
+
 enum Role {
   Red_Cross_Admin
   Donor
@@ -29,6 +31,8 @@ model User {
   status        Status   @default(Active)
   createdAt     DateTime @default(now())
   notification  Notification[]
+  eligibilityLogs     EligibilityLog[]
+  eligibilityStatuses UserEligibilityStatus[]
 }
 
 model BlacklistedToken {
@@ -46,4 +50,63 @@ model Notification {
   message   String
   isRead    Boolean  @default(false)
   createdAt DateTime @default(now())
+}
+
+
+// Donation Management Subsystem Tables
+
+enum Category{
+   Blood
+   Organ
+   Financial
+   In_Kind
+}
+
+enum RuleDataType{
+  Number
+  Boolean
+  String
+}
+
+model MedicalStandard{
+  id        String   @id @default(uuid())
+  category  Category
+  ruleKey   String
+  dataType  RuleDataType
+  value     String
+  description String?
+  updatedAt   DateTime   @updatedAt
+
+  @@unique([category,ruleKey])
+}
+
+
+model EligibilityLog {
+  id           String   @id @default(uuid())
+  userId       String
+  category     Category
+  answers      Json
+  isEligible   Boolean
+  reasonCode   String?
+  createdAt    DateTime @default(now())
+  user         User     @relation(fields: [userId], references: [id])
+}
+
+enum EligibilityStatus {
+  Eligible
+  Ineligible
+  NotChecked
+}
+
+model UserEligibilityStatus {
+  userId          String
+  category        Category
+  status          EligibilityStatus @default(Ineligible)
+  ineligibleUntil DateTime?
+
+  lastCheckedAt   DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  user            User      @relation(fields: [userId], references: [id])
+  @@id([userId, category])
 }
