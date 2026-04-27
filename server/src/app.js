@@ -6,8 +6,11 @@ import { StatusCodes } from 'http-status-codes';
 // Import Auth Routes
 import authRoutes from "./routes/authRoutes.js";
 
-// Import User-management routes
+// Import User-Management routes
 import userRoutes from "./routes/users/index.js";
+
+// Import Donation-Management routes
+import donationRoutes from "./routes/donations/index.js";
 
 dotenv.config();
 
@@ -43,6 +46,9 @@ app.use('/api/auth',authRoutes);
 
 // User Routes
 app.use("/api/users", userRoutes);
+
+// Donation Routes
+app.use("api/donations",donationRoutes);
 
 app.use((req,res)=>{
    res.status(StatusCodes.NOT_FOUND).json({

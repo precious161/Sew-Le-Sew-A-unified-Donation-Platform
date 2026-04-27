@@ -7,6 +7,6 @@ const router = Router();
 
 router.get("/", protect, AlertService.getMyNotifications);
 router.patch("/:id/read", protect, AlertService.markAsRead);
-router.post("/send", protect, authorize("RED_CROSS_ADMIN"), AlertService.sendAlert);
+router.post("/send", protect, authorize("Red_Cross_Admin"), AlertService.sendAlert);
 
 export default router;
