@@ -48,7 +48,7 @@ app.use('/api/auth',authRoutes);
 app.use("/api/users", userRoutes);
 
 // Donation Routes
-app.use("api/donations",donationRoutes);
+app.use("/api/donations",donationRoutes);
 
 app.use((req,res)=>{
    res.status(StatusCodes.NOT_FOUND).json({
