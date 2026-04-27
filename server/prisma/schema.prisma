@@ -29,10 +29,12 @@ model User {
   PhoneNumber   String?
   Role          Role     @default(Donor)
   status        Status   @default(Active)
+  bloodType     String?
   createdAt     DateTime @default(now())
   notification  Notification[]
   eligibilityLogs     EligibilityLog[]
   eligibilityStatuses UserEligibilityStatus[]
+  donationIntents DonationIntent[]
 }
 
 model BlacklistedToken {
@@ -109,4 +111,30 @@ model UserEligibilityStatus {
 
   user            User      @relation(fields: [userId], references: [id])
   @@id([userId, category])
+}
+
+enum IntentStatus {
+  Active
+  Matched
+  Completed
+  Cancelled
+}
+
+model DonationIntent {
+  id            String       @id @default(uuid())
+  userId        String
+  category      Category
+
+  location      String       @default("Red Cross Center, Addis Ababa")
+  plannedDate   DateTime
+
+  status        IntentStatus @default(Active)
+
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  user          User         @relation(fields: [userId], references: [id])
+
+
+  @@unique([userId, category, status])
 }
