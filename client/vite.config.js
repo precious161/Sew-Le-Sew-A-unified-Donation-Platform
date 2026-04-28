@@ -1,3 +1,4 @@
+// client/vite.config.js
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
@@ -6,11 +7,9 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'http://localhost:5000', // Ensure this matches your friend's backend port
+        target: 'http://127.0.0.1:5000', // Match the backend terminal exactly
         changeOrigin: true,
         secure: false,
-        // Uncomment the line below if the backend routes do NOT start with /api
-        // rewrite: (path) => path.replace(/^\/api/, ''), 
       },
     },
   },
