@@ -1,6 +1,6 @@
 import { StatusCodes } from "http-status-codes";
 
-export const validateIntent = (schema) => {
+export const validateRequest = (schema) => {
   return (req, res, next) => {
     try {
 

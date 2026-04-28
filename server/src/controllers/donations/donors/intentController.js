@@ -1,4 +1,4 @@
-import { registerIntent } from "../../services/donations/intentService.js";
+import { registerIntent } from "../../../services/donations/donors/intentService.js";
 
 export const handleRegisterIntent = async (req, res, next) => {
   try {

@@ -35,6 +35,8 @@ model User {
   eligibilityLogs     EligibilityLog[]
   eligibilityStatuses UserEligibilityStatus[]
   donationIntents DonationIntent[]
+  healthInfo HealthInformation?
+  requests DonationRequest[]
 }
 
 model BlacklistedToken {
@@ -137,4 +139,51 @@ model DonationIntent {
 
 
   @@unique([userId, category, status])
+}
+
+enum UrgencyLevel {
+  Low
+  Medium
+  High
+  Critical
+}
+
+enum RequestStatus {
+  Pending
+  Matching
+  Fulfilled
+  Cancelled
+}
+
+model HealthInformation {
+  id                String   @id @default(uuid())
+  userId            String   @unique
+  bloodType         String
+  weight            Float
+  height            Float
+  medicalConditions String?
+  allergies         String?
+  notes             String?
+
+  lastUpdated       DateTime @updatedAt
+
+  user              User     @relation(fields: [userId], references: [id])
+}
+
+
+model DonationRequest {
+  id                String        @id @default(uuid())
+  recipientId       String
+  donationType      Category
+  requiredBloodType String?
+  organType         String?
+  quantity          Int           @default(1)
+  urgencyLevel      UrgencyLevel  @default(Medium)
+  status            RequestStatus @default(Pending)
+  notes             String?
+
+  requestDate       DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  user              User          @relation(fields: [recipientId], references: [id])
 }

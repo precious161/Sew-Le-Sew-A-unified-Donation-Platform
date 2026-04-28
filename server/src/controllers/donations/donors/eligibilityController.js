@@ -1,4 +1,4 @@
-import * as EligibilityService from "../../services/donations/eligibilityService.js";
+import * as EligibilityService from "../../../services/donations/donors/eligibilityService.js";
 
 export const checkEligibility = async (req, res) => {
   try {
