@@ -92,7 +92,7 @@ const LoginPage = () => {
               </div>
               <input 
                 name="Password"
-                type={showPassword ? "text" : "password"} // Dynamic type
+                type={showPassword ? "text" : "password"} 
                 placeholder="Enter your password"
                 value={formData.Password}
                 onChange={handleChange}
