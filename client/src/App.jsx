@@ -1,45 +1,89 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider } from './context/AuthContext';
+
+// Logic & Security Imports
+import { AuthProvider } from './context/AuthProvider';
+import { useAuth } from './hooks/useAuth';
+import ProtectedRoute from './components/auth/ProtectedRoute';
+
+// Page Imports
 import SignupPage from './pages/auth/SignupPage';
 import LoginPage from './pages/auth/LoginPage';
+import Dashboard from './pages/Dashboard';
+import Profile from './pages/Profile';
+import AdminDashboard from './pages/admin/AdminDashboard';
 
-// --- Temporary Dashboards for testing redirects ---
-const DashboardPlaceholder = () => (
-  <div className="flex h-screen items-center justify-center flex-col bg-gray-50">
-    <h1 className="text-3xl font-bold text-medical-red">User Dashboard</h1>
-    <p className="text-gray-600 mt-2">Welcome! This is for Donors and Recipients.</p>
-    <button onClick={() => { localStorage.removeItem('token'); window.location.href='/login'; }} 
-            className="mt-6 text-sm underline text-gray-500">Log Out</button>
-  </div>
-);
-
-const AdminDashboardPlaceholder = () => (
-  <div className="flex h-screen items-center justify-center flex-col bg-slate-900 text-white">
-    <h1 className="text-3xl font-bold text-red-500">Admin Panel</h1>
-    <p className="opacity-80 mt-2">Welcome, System Administrator.</p>
-    <button onClick={() => { localStorage.removeItem('token'); window.location.href='/login'; }} 
-            className="mt-6 text-sm underline opacity-50">Log Out</button>
-  </div>
-);
+/**
+ * HomeRedirect Component:
+ * Strictly enforces the Access Control Matrix at the entry point.
+ * - Red_Cross_Admin: Pushed to the Admin Management Panel (/admin).
+ * - Donor/Recipient: Shown the User Overview Dashboard (/dashboard).
+ */
+const HomeRedirect = () => {
+  const { user } = useAuth();
+  
+  // Exact string match for Feyruza's Backend Enum
+  if (user?.Role === 'Red_Cross_Admin') {
+    return <Navigate to="/admin" replace />;
+  }
+  
+  return <Dashboard />;
+};
 
 function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
         <Routes>
-          {/* Public Authentication Routes */}
+          {/* --- PUBLIC ROUTES --- */}
+          {/* Access Control: SignUp is only for Donors/Recipients (Handled in the Page) */}
           <Route path="/signup" element={<SignupPage />} />
           <Route path="/login" element={<LoginPage />} />
 
-          {/* Protected Route Targets (We will add the logic later) */}
-          <Route path="/dashboard" element={<DashboardPlaceholder />} />
-          <Route path="/admin" element={<AdminDashboardPlaceholder />} />
+          {/* --- PROTECTED USER ROUTES --- */}
+          {/* 
+            The /dashboard path acts as a gateway. 
+            HomeRedirect ensures Admins are kicked out to /admin 
+            so they never see the Donor "Hello" card.
+          */}
+          <Route 
+            path="/dashboard" 
+            element={
+              <ProtectedRoute allowedRoles={['Donor', 'Recipient', 'Red_Cross_Admin']}>
+                <HomeRedirect />
+              </ProtectedRoute>
+            } 
+          />
 
-          {/* Root Redirect: Start at Login */}
+          {/* 
+             Profile: Accessible by all authenticated users for "ViewProfile()".
+             Internal logic in Profile.jsx handles "UpdateProfile()" restrictions for Admin.
+          */}
+          <Route 
+            path="/profile" 
+            element={
+              <ProtectedRoute allowedRoles={['Donor', 'Recipient', 'Red_Cross_Admin']}>
+                <Profile />
+              </ProtectedRoute>
+            } 
+          />
+
+          {/* --- PROTECTED ADMIN ROUTES --- */}
+          {/* Access Control: Only the Authority role can enter the Registry Control */}
+          <Route 
+            path="/admin" 
+            element={
+              <ProtectedRoute allowedRoles={['Red_Cross_Admin']}>
+                <AdminDashboard />
+              </ProtectedRoute>
+            } 
+          />
+
+          {/* --- SYSTEM REDIRECTS --- */}
+          {/* Start at Login if no session exists */}
           <Route path="/" element={<Navigate to="/login" replace />} />
-
-          {/* Catch-all: If user types a wrong URL, send to Login */}
+          
+          {/* Catch-all safety: Redirects any unknown URL back to Login */}
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       </BrowserRouter>

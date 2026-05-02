@@ -7,23 +7,27 @@ const AuthService = {
     return response.data;
   },
   
- // Login logic
+  //  Login logic
   login: async (EmailAddress, Password) => {
-    
     const response = await api.post('/auth/login', { EmailAddress, Password });
-    
-    
     if (response.data.success && response.data.data.token) {
       localStorage.setItem('token', response.data.data.token);
     }
-    
     return response.data;
   },
 
-  // Added Logout for later use
-  logout: () => {
-    localStorage.removeItem('token');
-    window.location.href = '/login';
+  // Logout logic
+  logout: async () => {
+    try {
+      await api.post('/auth/logout');
+    } catch (error) {
+      console.error("Backend logout failed:", error.response?.data?.message || error.message);
+    } finally {
+      // Remove the token from browser
+      localStorage.removeItem('token');
+      // Send user back to login page
+      window.location.href = '/login';
+    }
   }
 };
 

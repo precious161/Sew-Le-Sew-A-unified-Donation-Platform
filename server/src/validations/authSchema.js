@@ -6,6 +6,7 @@ export const signUpSchema= z.object({
   EmailAddress: z.string().email("Invalid email format"),
   Password: z.string().min(8,"Password must be at least 8 characters"),
   PhoneNumber: z.string().min(10,"Phone number is too short"),
+  Role: z.enum(["Donor", "Recipient"]).optional(),
 });
 
 export const loginSchema= z.object({
