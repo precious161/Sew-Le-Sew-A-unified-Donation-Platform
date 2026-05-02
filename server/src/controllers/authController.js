@@ -47,14 +47,15 @@ export const signUp = async (req, res) => {
           id: newUser.id,
           FirstName: newUser.FirstName,
           EmailAddress: newUser.EmailAddress,
-          Role: newUser.Role
-        }
-      }
+          Role: newUser.Role,
+        },
+      },
     });
   } catch (error) {
+    console.error("signUp Error:", error);
     return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
       success: false,
-      message: "Server error during registration"
+      message: "Server error during registration",
     });
   }
 };
@@ -102,13 +103,14 @@ export const login = async (req, res) => {
           FirstName: user.FirstName,
           EmailAddress: user.EmailAddress,
           Role: user.Role,
-        }
-      }
+        },
+      },
     });
   } catch (error) {
+    console.error("login Error:", error);
     return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
       success: false,
-      message: "Server error during login"
+      message: "Server error during login",
     });
   }
 };
@@ -117,10 +119,10 @@ export const logout = async (req, res) => {
   try {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-       return res.status(StatusCodes.BAD_REQUEST).json({
-         success: false,
-         message: "No token provided"
-       });
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        success: false,
+        message: "No token provided",
+      });
     }
 
     const token = authHeader.split(" ")[1];
@@ -135,9 +137,10 @@ export const logout = async (req, res) => {
 
     return res.status(StatusCodes.OK).json({
       success: true,
-      message: "Logged out successfully"
+      message: "Logged out successfully",
     });
   } catch (error) {
+    console.error("logout Error:", error);
     return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
       success: false,
       message: "Logout failed due to a system error",
