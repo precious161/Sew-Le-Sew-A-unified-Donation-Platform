@@ -24,13 +24,19 @@ const LoginPage = () => {
 
     try {
       const result = await AuthService.login(formData.EmailAddress, formData.Password);
+      
       if (result.success) {
+      
         await checkAuth(); 
         
-        if (result.data.user.Role === 'Red_Cross_Admin') {
-          navigate('/admin');
+        const userRole = result.data.user.Role;
+        
+        if (userRole === 'Red_Cross_Admin') {
+          console.log("Admin detected. Redirecting to Admin Panel...");
+          navigate('/admin', { replace: true });
         } else {
-          navigate('/dashboard');
+          console.log("User detected. Redirecting to Dashboard...");
+          navigate('/dashboard', { replace: true });
         }
       }
     } catch (err) {
@@ -56,8 +62,8 @@ const LoginPage = () => {
         </div>
 
         <div className="text-center mb-10">
-          <h1 className="text-3xl font-black tracking-tighter uppercase italic">Welcome Back</h1>
-          <p className="text-gray-300 mt-2 text-[10px] font-bold uppercase tracking-[0.2em] opacity-70">Please enter your details</p>
+          <h1 className="text-3xl font-black tracking-tighter ">Welcome Back</h1>
+          <p className="text-gray-300 mt-2 text-[10px] font-bold  tracking-[0.2em] opacity-70">Please enter your details.</p>
         </div>
 
         {error && (
@@ -70,7 +76,9 @@ const LoginPage = () => {
           <div className="space-y-2">
             <label className="block text-[9px] font-black uppercase tracking-[0.2em] text-gray-400 ml-1">Email Address</label>
             <div className="relative group">
-              <div className="absolute inset-y-0 left-0 pl-4 flex items-center text-gray-400"><Mail size={18} /></div>
+              <div className="absolute inset-y-0 left-0 pl-4 flex items-center text-gray-400 group-focus-within:text-white transition-colors">
+                <Mail size={18} />
+              </div>
               <input 
                 name="EmailAddress"
                 type="email" 
@@ -79,7 +87,7 @@ const LoginPage = () => {
                 onChange={handleChange}
                 required
                 autoComplete="new-user-email" 
-                className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 outline-none focus:bg-white/15 focus:border-medical-red transition-all font-bold text-sm placeholder:text-gray-600"
+                className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 outline-none focus:bg-white/15 focus:border-medical-red transition-all font-bold text-sm"
               />
             </div>
           </div>
@@ -87,7 +95,9 @@ const LoginPage = () => {
           <div className="space-y-2">
             <label className="block text-[9px] font-black uppercase tracking-[0.2em] text-gray-400 ml-1">Password</label>
             <div className="relative group">
-              <div className="absolute inset-y-0 left-0 pl-4 flex items-center text-gray-400"><Lock size={18} /></div>
+              <div className="absolute inset-y-0 left-0 pl-4 flex items-center text-gray-400 group-focus-within:text-white transition-colors">
+                <Lock size={18} />
+              </div>
               <input 
                 name="Password"
                 type={showPassword ? "text" : "password"} 
@@ -96,7 +106,7 @@ const LoginPage = () => {
                 onChange={handleChange}
                 required
                 autoComplete="new-password"
-                className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-12 outline-none focus:bg-white/15 focus:border-medical-red transition-all font-bold text-sm placeholder:text-gray-600"
+                className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-12 outline-none focus:bg-white/15 focus:border-medical-red transition-all font-bold text-sm"
               />
               <button 
                 type="button"
@@ -113,11 +123,11 @@ const LoginPage = () => {
             disabled={isLoading}
             className="w-full bg-medical-red hover:bg-red-700 disabled:bg-gray-700 text-white font-black uppercase tracking-[0.3em] text-xs py-5 rounded-2xl shadow-xl shadow-red-900/30 transition-all transform active:scale-95 text-center"
           >
-            {isLoading ? 'Verifying...' : 'Sign In'}
+            {isLoading ? 'Synchronizing...' : 'Sign In'}
           </button>
         </form>
 
-        <div className="mt-10 text-center text-[10px] font-black uppercase tracking-widest text-gray-400">
+        <div className="mt-10 text-center text-[10px] font-black  tracking-widest text-gray-400">
           Don't have an account? <Link to="/signup" className="text-white hover:underline hover:text-medical-red transition-colors ml-1">Sign up</Link>
         </div>
       </div>
