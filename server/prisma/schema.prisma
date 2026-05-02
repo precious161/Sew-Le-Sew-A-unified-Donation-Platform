@@ -1,4 +1,3 @@
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -7,7 +6,9 @@ datasource db {
   provider = "postgresql"
 }
 
-// User Management Subsystem Tables
+// ─────────────────────────────────────────
+// User Management Subsystem
+// ─────────────────────────────────────────
 
 enum Role {
   Red_Cross_Admin
@@ -31,12 +32,17 @@ model User {
   status        Status   @default(Active)
   bloodType     String?
   createdAt     DateTime @default(now())
-  notification  Notification[]
-  eligibilityLogs     EligibilityLog[]
-  eligibilityStatuses UserEligibilityStatus[]
-  donationIntents DonationIntent[]
-  healthInfo HealthInformation?
-  requests DonationRequest[]
+
+  // Relations
+  notification           Notification[]
+  eligibilityLogs        EligibilityLog[]
+  eligibilityStatuses    UserEligibilityStatus[]
+  donationIntents        DonationIntent[]
+  healthInfo             HealthInformation?
+  requests               DonationRequest[]
+  confirmedMatches       Match[]                 @relation("MatchConfirmer")
+  financialContributions FinancialContribution[]
+  allocatedContributions FinancialContribution[] @relation("FinancialAllocator")
 }
 
 model BlacklistedToken {
@@ -46,54 +52,57 @@ model BlacklistedToken {
   expiresAt DateTime
 }
 
-
 model Notification {
   id        String   @id @default(uuid())
   userId    String
-  user      User     @relation(fields: [userId], references: [id])
   message   String
   isRead    Boolean  @default(false)
   createdAt DateTime @default(now())
+
+  // Relations
+  user User @relation(fields: [userId], references: [id])
 }
 
+// ─────────────────────────────────────────
+// Donation Management Subsystem
+// ─────────────────────────────────────────
 
-// Donation Management Subsystem Tables
-
-enum Category{
-   Blood
-   Organ
-   Financial
-   In_Kind
+enum Category {
+  Blood
+  Organ
+  Financial
+  In_Kind
 }
 
-enum RuleDataType{
+enum RuleDataType {
   Number
   Boolean
   String
 }
 
-model MedicalStandard{
-  id        String   @id @default(uuid())
-  category  Category
-  ruleKey   String
-  dataType  RuleDataType
-  value     String
+model MedicalStandard {
+  id          String       @id @default(uuid())
+  category    Category
+  ruleKey     String
+  dataType    RuleDataType
+  value       String
   description String?
-  updatedAt   DateTime   @updatedAt
+  updatedAt   DateTime     @updatedAt
 
-  @@unique([category,ruleKey])
+  @@unique([category, ruleKey])
 }
 
-
 model EligibilityLog {
-  id           String   @id @default(uuid())
-  userId       String
-  category     Category
-  answers      Json
-  isEligible   Boolean
-  reasonCode   String?
-  createdAt    DateTime @default(now())
-  user         User     @relation(fields: [userId], references: [id])
+  id         String   @id @default(uuid())
+  userId     String
+  category   Category
+  answers    Json
+  isEligible Boolean
+  reasonCode String?
+  createdAt  DateTime @default(now())
+
+  // Relations
+  user User @relation(fields: [userId], references: [id])
 }
 
 enum EligibilityStatus {
@@ -107,11 +116,12 @@ model UserEligibilityStatus {
   category        Category
   status          EligibilityStatus @default(Ineligible)
   ineligibleUntil DateTime?
+  lastCheckedAt   DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
 
-  lastCheckedAt   DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  // Relations
+  user User @relation(fields: [userId], references: [id])
 
-  user            User      @relation(fields: [userId], references: [id])
   @@id([userId, category])
 }
 
@@ -123,20 +133,23 @@ enum IntentStatus {
 }
 
 model DonationIntent {
-  id            String       @id @default(uuid())
-  userId        String
-  category      Category
+  id          String       @id @default(uuid())
+  userId      String
+  category    Category
+  location    String       @default("Red Cross Center, Addis Ababa")
+  plannedDate DateTime
+  status      IntentStatus @default(Active)
 
-  location      String       @default("Red Cross Center, Addis Ababa")
-  plannedDate   DateTime
+  // In-Kind specific fields
+  itemType    String?
+  quantity    Int?
 
-  status        IntentStatus @default(Active)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
 
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
-
-  user          User         @relation(fields: [userId], references: [id])
-
+  // Relations
+  user    User    @relation(fields: [userId], references: [id])
+  matches Match[]
 
   @@unique([userId, category, status])
 }
@@ -164,12 +177,11 @@ model HealthInformation {
   medicalConditions String?
   allergies         String?
   notes             String?
-
   lastUpdated       DateTime @updatedAt
 
-  user              User     @relation(fields: [userId], references: [id])
+  // Relations
+  user User @relation(fields: [userId], references: [id])
 }
-
 
 model DonationRequest {
   id                String        @id @default(uuid())
@@ -182,8 +194,78 @@ model DonationRequest {
   status            RequestStatus @default(Pending)
   notes             String?
 
+
+  itemType          String?
+  itemQuantity      Int?
+
   requestDate       DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
 
-  user              User          @relation(fields: [recipientId], references: [id])
+  // Relations
+  user    User    @relation(fields: [recipientId], references: [id])
+  matches Match[]
+}
+
+// ─────────────────────────────────────────
+// Matching Subsystem
+// ─────────────────────────────────────────
+
+enum MatchStatus {
+  Pending
+  Notified
+  Accepted
+  Declined
+  Completed
+  Cancelled
+}
+
+model Match {
+  id          String      @id @default(uuid())
+  intentId    String
+  requestId   String
+  confirmedBy String?
+  status      MatchStatus @default(Pending)
+
+  // Stage timestamps
+  notifiedAt  DateTime?
+  acceptedAt  DateTime?
+  declinedAt  DateTime?
+  completedAt DateTime?
+
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  // Relations
+  intent          DonationIntent  @relation(fields: [intentId], references: [id])
+  request         DonationRequest @relation(fields: [requestId], references: [id])
+  confirmedByUser User?           @relation("MatchConfirmer", fields: [confirmedBy], references: [id])
+
+  // One active match per request at a time
+  @@unique([requestId, status])
+}
+
+
+enum FinancialStatus {
+  Pending
+  Verified
+  Allocated
+  Failed
+}
+
+model FinancialContribution {
+  id             String          @id @default(uuid())
+  donorId        String
+  amount         Float
+  currency       String          @default("ETB")
+  purpose        String?
+  status         FinancialStatus @default(Pending)
+  allocatedBy    String?
+  allocatedAt    DateTime?
+  allocationNote String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  // Relations
+  donor           User  @relation(fields: [donorId], references: [id])
+  allocatedByUser User? @relation("FinancialAllocator", fields: [allocatedBy], references: [id])
 }
