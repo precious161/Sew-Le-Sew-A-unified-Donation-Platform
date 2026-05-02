@@ -12,6 +12,9 @@ import userRoutes from "./routes/users/index.js";
 // Import Donation-Management routes
 import donationRoutes from "./routes/donations/index.js";
 
+// Import Matching routes
+import matchingRoutes from "./routes/matching/index.js";
+
 dotenv.config();
 
 const app=express();
@@ -20,7 +23,7 @@ app.use(cors({
   origin: "http://localhost:5173",
   methods: ["GET", "POST", "PATCH"],
   allowedHeaders: ["Content-Type", "Authorization"]
-})); 
+}));
 
 
 app.use(express.json());
@@ -51,6 +54,9 @@ app.use("/api/users", userRoutes);
 
 // Donation Routes
 app.use("/api/donations",donationRoutes);
+
+// Matching Routes
+app.use("/api/matching", matchingRoutes);
 
 app.use((req,res)=>{
    res.status(StatusCodes.NOT_FOUND).json({

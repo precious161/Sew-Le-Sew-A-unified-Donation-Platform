@@ -6,6 +6,14 @@ import { runInKindMatching } from "../../matching/inKind/inKindMatchingService.j
 export const registerIntent = async (userId, data) => {
   const { category, plannedDate, location, itemType, quantity } = data;
 
+   if (category === "Financial") {
+    const error = new Error(
+      "To make a financial donation, please visit the financial contribution section to complete your transfer."
+    );
+    error.statusCode = 400;
+    throw error;
+  }
+
   // 1. Check Eligibility Status
   const eligibility = await prisma.userEligibilityStatus.findUnique({
     where: {
