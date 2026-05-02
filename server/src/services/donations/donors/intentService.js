@@ -1,6 +1,7 @@
-
+// intentService.js
 import prisma from "../../../config/db.js";
 import { runBloodMatching } from "../../matching/blood/bloodMatchingService.js";
+import { runInKindMatching } from "../../matching/inKind/inKindMatchingService.js";
 
 export const registerIntent = async (userId, data) => {
   const { category, plannedDate, location, itemType, quantity } = data;
@@ -43,7 +44,16 @@ export const registerIntent = async (userId, data) => {
     throw error;
   }
 
-  // 4. Create the Intent
+  // 4. Extra validation for In-Kind
+  if (category === "In_Kind") {
+    if (!itemType || !quantity) {
+      const error = new Error("itemType and quantity are required for In-Kind donations.");
+      error.statusCode = 400;
+      throw error;
+    }
+  }
+
+  // 5. Create the Intent
   const newIntent = await prisma.donationIntent.create({
     data: {
       userId,
@@ -51,17 +61,17 @@ export const registerIntent = async (userId, data) => {
       plannedDate,
       location: location || "Red Cross Center, Addis Ababa",
       status: "Active",
-      // In-Kind specific fields — ignored for other categories
       itemType: category === "In_Kind" ? itemType : null,
       quantity: category === "In_Kind" ? quantity : null,
     },
   });
 
-  // 5. Automatically trigger matching engine based on category
+  // 6. Automatically trigger matching engine based on category
   if (category === "Blood") {
     await runBloodMatching();
+  } else if (category === "In_Kind") {
+    await runInKindMatching();
   }
-  // In_Kind matching will be added here later
   // Organ matching will be handled in AI subsystem
 
   return newIntent;

@@ -1,6 +1,7 @@
-
+// donationRequestService.js
 import prisma from "../../../config/db.js";
 import { runBloodMatching } from "../../matching/blood/bloodMatchingService.js";
+import { runInKindMatching } from "../../matching/inKind/inKindMatchingService.js";
 
 export const createDonationRequest = async (userId, data) => {
   // 1. Verify Precondition: Does the user have Health Information?
@@ -16,7 +17,16 @@ export const createDonationRequest = async (userId, data) => {
     throw error;
   }
 
-  // 2. Create the Request
+  // 2. Extra validation for In-Kind
+  if (data.donationType === "In_Kind") {
+    if (!data.itemType || !data.itemQuantity) {
+      const error = new Error("itemType and itemQuantity are required for In-Kind requests.");
+      error.statusCode = 400;
+      throw error;
+    }
+  }
+
+  // 3. Create the Request
   const newRequest = await prisma.donationRequest.create({
     data: {
       recipientId: userId,
@@ -25,11 +35,12 @@ export const createDonationRequest = async (userId, data) => {
     },
   });
 
-  // 3. Automatically trigger matching engine based on donation type
+  // 4. Automatically trigger matching engine based on donation type
   if (newRequest.donationType === "Blood") {
     await runBloodMatching();
+  } else if (newRequest.donationType === "In_Kind") {
+    await runInKindMatching();
   }
-  // In_Kind matching will be added here later
   // Organ matching will be handled in AI subsystem
 
   return newRequest;
