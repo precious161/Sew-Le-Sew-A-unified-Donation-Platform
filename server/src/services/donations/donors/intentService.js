@@ -1,7 +1,7 @@
 // intentService.js
 import prisma from "../../../config/db.js";
-import { runBloodMatching } from "../../matching/blood/bloodMatchingService.js";
-import { runInKindMatching } from "../../matching/inKind/inKindMatchingService.js";
+import { runBloodMatching } from "../../../services/matching/bloodMatchingService.js";
+import { runInKindMatching } from "../../../services/matching/inKindMatchingService.js";
 
 export const registerIntent = async (userId, data) => {
   const { category, plannedDate, location, itemType, quantity } = data;
@@ -75,8 +75,13 @@ export const registerIntent = async (userId, data) => {
   });
 
   // 6. Automatically trigger matching engine based on category
-  if (category === "Blood") {
+ if (category === "Blood") {
+  try {
     await runBloodMatching();
+  } catch (matchingError) {
+    console.error("Blood matching engine error:", matchingError);
+  }
+
   } else if (category === "In_Kind") {
     await runInKindMatching();
   }

@@ -1,5 +1,5 @@
 // inKindMatchingService.js
-import prisma from "../../../config/db.js";
+import prisma from "../../config/db.js";
 
 export const runInKindMatching = async () => {
   // 1. Fetch all pending In-Kind requests ordered by urgency and date

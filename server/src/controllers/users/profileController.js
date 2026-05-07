@@ -13,6 +13,7 @@ export const viewProfile = async (req, res) => {
         PhoneNumber: true,
         Role: true,
         status: true,
+        bloodType:true,
       },
     });
 
@@ -52,7 +53,8 @@ export const updateProfile = async (req, res) => {
         FirstName,
         LastName,
         PhoneNumber,
-        Role: updatedRole
+        Role: updatedRole,
+        bloodType,
       },
       select: {
         id: true,
@@ -60,7 +62,8 @@ export const updateProfile = async (req, res) => {
         LastName: true,
         EmailAddress: true,
         PhoneNumber: true,
-        Role: true
+        Role: true,
+        bloodType:true
       }
     });
 

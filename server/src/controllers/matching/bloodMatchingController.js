@@ -1,5 +1,5 @@
 
-import * as BloodMatchingService from "../../../services/matching/bloodMatchingService.js";
+import * as BloodMatchingService from "../../services/matching/bloodMatchingService.js";
 
 export const triggerBloodMatching = async (req, res) => {
   try {

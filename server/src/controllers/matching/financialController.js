@@ -1,5 +1,5 @@
 
-import * as FinancialService from "../../../services/matching/financialService.js";
+import * as FinancialService from "../../services/matching/financialService.js";
 
 export const submitContribution = async (req, res) => {
   try {

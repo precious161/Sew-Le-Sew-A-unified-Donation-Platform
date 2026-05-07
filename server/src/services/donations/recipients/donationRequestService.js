@@ -1,7 +1,7 @@
 // donationRequestService.js
 import prisma from "../../../config/db.js";
-import { runBloodMatching } from "../../matching/blood/bloodMatchingService.js";
-import { runInKindMatching } from "../../matching/inKind/inKindMatchingService.js";
+import { runBloodMatching } from "../../../services/matching/bloodMatchingService.js";
+import { runInKindMatching } from "../../../services/matching/inKindMatchingService.js";
 
 export const createDonationRequest = async (userId, data) => {
   // 1. Verify Precondition: Does the user have Health Information?

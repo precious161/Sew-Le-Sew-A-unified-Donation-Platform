@@ -1,8 +1,8 @@
 // bloodMatchingRoutes.js
 import { Router } from "express";
-import { protect } from "../../../middleware/authMiddleware.js";
-import { authorize } from "../../../middleware/users/roleMiddleware.js";
-import * as BloodMatchingController from "../../../controllers/matching/bloodMatchingController.js";
+import { protect } from "../../middleware/authMiddleware.js";
+import { authorize } from "../../middleware/users/roleMiddleware.js";
+import * as BloodMatchingController from "../../controllers/matching/bloodMatchingController.js";
 
 const router = Router();
 

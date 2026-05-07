@@ -1,8 +1,8 @@
 
 import { Router } from "express";
-import { protect } from "../../../middleware/authMiddleware.js";
-import { authorize } from "../../../middleware/users/roleMiddleware.js";
-import * as FinancialController from "../../../controllers/matching/financialController.js";
+import { protect } from "../../middleware/authMiddleware.js";
+import { authorize } from "../../middleware/users/roleMiddleware.js";
+import * as FinancialController from "../../controllers/matching/financialController.js";
 
 const router = Router();
 

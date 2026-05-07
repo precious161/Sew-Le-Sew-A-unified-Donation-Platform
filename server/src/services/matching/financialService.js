@@ -1,5 +1,5 @@
 
-import prisma from "../../../config/db.js";
+import prisma from "../../config/db.js";
 
 const getMinimumAmount = async () => {
   const standard = await prisma.medicalStandard.findUnique({

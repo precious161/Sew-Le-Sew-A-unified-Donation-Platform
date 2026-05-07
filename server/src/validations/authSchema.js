@@ -7,6 +7,9 @@ export const signUpSchema= z.object({
   Password: z.string().min(8,"Password must be at least 8 characters"),
   PhoneNumber: z.string().min(10,"Phone number is too short"),
   Role: z.enum(["Donor", "Recipient"]).optional(),
+  bloodType: z.enum(
+    ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"]
+  ).optional(),
 });
 
 export const loginSchema= z.object({

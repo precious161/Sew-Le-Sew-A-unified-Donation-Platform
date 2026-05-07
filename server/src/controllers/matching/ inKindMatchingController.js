@@ -1,5 +1,5 @@
 
-import * as InKindMatchingService from "../../../services/matching/inKindMatchingService.js";
+import * as InKindMatchingService from "../../services/matching/inKindMatchingService.js";
 
 export const triggerInKindMatching = async (req, res) => {
   try {
