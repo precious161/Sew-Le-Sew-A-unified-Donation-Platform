@@ -1,14 +1,27 @@
 
 import * as FinancialService from "../../services/matching/financialService.js";
 
+// ─────────────────────────────────────────
+// Donor: Submit a contribution pledge
+// ─────────────────────────────────────────
 export const submitContribution = async (req, res) => {
   try {
     const donorId = req.user.id;
-    const contribution = await FinancialService.submitContribution(donorId, req.body);
+
+    const data = {
+      ...req.body,
+      documentUrl: req.file?.path || null,
+    };
+
+    const contribution = await FinancialService.submitContribution(
+      donorId,
+      data
+    );
 
     return res.status(201).json({
       success: true,
-      message: "Contribution pledge submitted successfully. Please complete your transfer.",
+      message:
+        "Contribution pledge submitted successfully. The Red Cross will verify your payment shortly.",
       data: contribution,
     });
   } catch (error) {
@@ -21,12 +34,18 @@ export const submitContribution = async (req, res) => {
   }
 };
 
+// ─────────────────────────────────────────
+// Donor: Cancel a pending contribution
+// ─────────────────────────────────────────
 export const cancelContribution = async (req, res) => {
   try {
     const donorId = req.user.id;
     const { id } = req.params;
 
-    const contribution = await FinancialService.cancelContribution(donorId, id);
+    const contribution = await FinancialService.cancelContribution(
+      donorId,
+      id
+    );
 
     return res.status(200).json({
       success: true,
@@ -43,6 +62,9 @@ export const cancelContribution = async (req, res) => {
   }
 };
 
+// ─────────────────────────────────────────
+// Donor: View own contributions
+// ─────────────────────────────────────────
 export const getMyContributions = async (req, res) => {
   try {
     const donorId = req.user.id;
@@ -62,6 +84,9 @@ export const getMyContributions = async (req, res) => {
   }
 };
 
+// ─────────────────────────────────────────
+// Admin: Get all contributions
+// ─────────────────────────────────────────
 export const getAllContributions = async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
@@ -82,28 +107,76 @@ export const getAllContributions = async (req, res) => {
   }
 };
 
-export const verifyContribution = async (req, res) => {
+// ─────────────────────────────────────────
+// Admin: Get pending contributions
+// ─────────────────────────────────────────
+export const getPendingContributions = async (req, res) => {
   try {
-    const adminId = req.user.id;
-    const { id } = req.params;
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
 
-    const contribution = await FinancialService.verifyContribution(adminId, id);
+    const result = await FinancialService.getPendingContributions(page, limit);
 
     return res.status(200).json({
       success: true,
-      message: "Contribution verified successfully.",
-      data: contribution,
+      ...result,
     });
   } catch (error) {
-    console.error("verifyContribution Error:", error);
-    const status = error.statusCode || 500;
-    return res.status(status).json({
+    console.error("getPendingContributions Error:", error);
+    return res.status(500).json({
       success: false,
-      message: error.message || "Failed to verify contribution.",
+      message: "Failed to fetch pending contributions.",
     });
   }
 };
 
+// ─────────────────────────────────────────
+// Admin: Review a contribution (approve or reject)
+// ─────────────────────────────────────────
+export const reviewContribution = async (req, res) => {
+  try {
+    const adminId = req.user.id;
+    const { id } = req.params;
+    const { approved, rejectionReason } = req.body;
+
+    if (typeof approved !== "boolean") {
+      return res.status(400).json({
+        success: false,
+        message: "Field 'approved' must be a boolean (true or false).",
+      });
+    }
+
+    if (!approved && !rejectionReason) {
+      return res.status(400).json({
+        success: false,
+        message: "Rejection reason is required when rejecting a contribution.",
+      });
+    }
+
+    await FinancialService.reviewContribution(adminId, id, {
+      approved,
+      rejectionReason,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: approved
+        ? "Contribution verified successfully. Donor has been notified."
+        : "Contribution rejected successfully. Donor has been notified.",
+    });
+  } catch (error) {
+    console.error("reviewContribution Error:", error);
+    const status = error.statusCode || 500;
+    return res.status(status).json({
+      success: false,
+      message: error.message || "Failed to review contribution.",
+    });
+  }
+};
+
+// ─────────────────────────────────────────
+// Admin: Allocate a verified contribution
+// ─────────────────────────────────────────
 export const allocateContribution = async (req, res) => {
   try {
     const adminId = req.user.id;
@@ -138,30 +211,9 @@ export const allocateContribution = async (req, res) => {
   }
 };
 
-export const rejectContribution = async (req, res) => {
-  try {
-    const adminId = req.user.id;
-    const { id } = req.params;
-
-    const contribution = await FinancialService.rejectContribution(adminId, id);
-
-    return res.status(200).json({
-      success: true,
-      message: "Contribution rejected successfully.",
-      data: contribution,
-    });
-  } catch (error) {
-    console.error("rejectContribution Error:", error);
-    const status = error.statusCode || 500;
-    return res.status(status).json({
-      success: false,
-      message: error.message || "Failed to reject contribution.",
-    });
-  }
-};
-
-// Add this to existing financialController.js
-
+// ─────────────────────────────────────────
+// Admin: Distribute funds to recipient
+// ─────────────────────────────────────────
 export const distributeToRecipient = async (req, res) => {
   try {
     const adminId = req.user.id;

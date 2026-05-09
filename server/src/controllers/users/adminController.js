@@ -106,3 +106,91 @@ export const assignRole = async (req, res) => {
     });
   }
 };
+
+export const getPendingIdentities = async (req, res) => {
+  try {
+    const pendingUsers = await prisma.user.findMany({
+      where: { identityStatus: "Pending" },
+      select: {
+        id: true,
+        FirstName: true,
+        LastName: true,
+        EmailAddress: true,
+        Role: true,
+        identityDocumentUrl: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: "asc" }, // Oldest pending uploads first
+    });
+
+    return res.status(StatusCodes.OK).json({
+      success: true,
+      count: pendingUsers.length,
+      data: pendingUsers,
+    });
+  } catch (error) {
+    console.error("getPendingIdentities Error:", error);
+    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+      success: false,
+      message: "Error fetching pending identities.",
+    });
+  }
+};
+
+export const reviewIdentity = async (req, res) => {
+  try {
+    const adminId = req.user.id;
+    const { id: userIdToVerify } = req.params;
+    const { approved, rejectionReason } = req.body;
+
+    if (typeof approved !== "boolean") {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        success: false,
+        message: "Field 'approved' must be a boolean (true or false).",
+      });
+    }
+
+    if (!approved && !rejectionReason) {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        success: false,
+        message: "Rejection reason is required if you are rejecting this identity.",
+      });
+    }
+
+    const newStatus = approved ? "Verified" : "Rejected";
+
+    // Run atomically
+    await prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: userIdToVerify },
+        data: {
+          identityStatus: newStatus,
+          identityVerifiedBy: adminId,
+          identityVerifiedAt: new Date(),
+          identityRejectionReason: approved ? null : rejectionReason,
+        },
+      });
+
+      // Dispatch alert to user
+      await tx.notification.create({
+        data: {
+          userId: userIdToVerify,
+          message: approved
+            ? "Your identity verification has been approved! You can now freely request and register donations."
+            : `Your identity verification was rejected. Reason: ${rejectionReason}. Please re-upload a clear ID.`,
+        },
+      });
+    });
+
+    return res.status(StatusCodes.OK).json({
+      success: true,
+      message: `User identity status updated to ${newStatus}.`,
+    });
+  } catch (error) {
+    console.error("reviewIdentity Error:", error);
+    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+      success: false,
+      message: "Verification review failed.",
+    });
+  }
+};

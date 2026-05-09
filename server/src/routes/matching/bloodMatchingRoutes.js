@@ -1,4 +1,4 @@
-// bloodMatchingRoutes.js
+
 import { Router } from "express";
 import { protect } from "../../middleware/authMiddleware.js";
 import { authorize } from "../../middleware/users/roleMiddleware.js";
@@ -6,6 +6,7 @@ import * as BloodMatchingController from "../../controllers/matching/bloodMatchi
 
 const router = Router();
 
+// ── Admin Routes ──
 router.post(
   "/run",
   protect,
@@ -13,20 +14,40 @@ router.post(
   BloodMatchingController.triggerBloodMatching
 );
 
-// Donor accepts or declines a match
-router.patch(
-  "/:id/respond",
+router.get(
+  "/",
   protect,
-  authorize("Donor"),
-  BloodMatchingController.respondToMatch
+  authorize("Red_Cross_Admin"),
+  BloodMatchingController.getAllBloodMatches
 );
 
-// Admin confirms physical donation happened
+router.get(
+  "/unmatched",
+  protect,
+  authorize("Red_Cross_Admin"),
+  BloodMatchingController.getUnmatchedBloodRequests
+);
+
+router.get(
+  "/:id",
+  protect,
+  authorize("Red_Cross_Admin"),
+  BloodMatchingController.getBloodMatchById
+);
+
 router.patch(
   "/:id/complete",
   protect,
   authorize("Red_Cross_Admin"),
   BloodMatchingController.completeBloodDonation
+);
+
+// ── Donor Routes ──
+router.patch(
+  "/:id/respond",
+  protect,
+  authorize("Donor"),
+  BloodMatchingController.respondToMatch
 );
 
 export default router;

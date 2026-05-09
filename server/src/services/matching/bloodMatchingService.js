@@ -1,5 +1,5 @@
-import prisma from "../../config/db.js";
 
+import prisma from "../../config/db.js";
 
 const BLOOD_COMPATIBILITY = {
   "O-":  ["O-", "O+", "A-", "A+", "B-", "B+", "AB-", "AB+"],
@@ -12,117 +12,111 @@ const BLOOD_COMPATIBILITY = {
   "AB+": ["AB+"],
 };
 
-
+// ─────────────────────────────────────────
+// Core Matching Engine
+// ─────────────────────────────────────────
 export const runBloodMatching = async () => {
-  // 1. Fetch all pending blood requests ordered by urgency and date
-  const pendingRequests = await prisma.donationRequest.findMany({
-    where: {
-      donationType: "Blood",
-      status: "Pending",
-      requiredBloodType: { not: null },
-    },
-    include: {
-      user: {
-        include: {
-          healthInfo: true,
-        },
+  try {
+    // 1. Fetch all verified pending blood requests
+    // ordered by urgency and date
+    const pendingRequests = await prisma.donationRequest.findMany({
+      where: {
+        donationType: "Blood",
+        status: "Pending",
+        requiredBloodType: { not: null },
       },
-    },
-    orderBy: [
-      { urgencyLevel: "desc" },
-      { requestDate: "asc" },
-    ],
-  });
-
-  if (pendingRequests.length === 0) return;
-
-  // 2. Fetch all active blood donor intents
-  const activeIntents = await prisma.donationIntent.findMany({
-  where: { category: "Blood", status: "Active" },
-  include: {
-    user: true,
-  },
-});
-
-  if (activeIntents.length === 0) return;
-
-  // 3. Track which intents have been used in this run
-  // so one donor doesn't get matched to multiple recipients
-  const usedIntentIds = new Set();
-
-  // 4. Process each request
-  for (const request of pendingRequests) {
-    const requiredBloodType = request.requiredBloodType;
-
-    // Find compatible available donors for this request
-    const compatibleIntents = activeIntents.filter((intent) => {
-      // Skip already matched intents in this run
-      if (usedIntentIds.has(intent.id)) return false;
-
-      // Donor must have health info with blood type
-      const donorBloodType = intent.user.bloodType;
-      if (!donorBloodType) return false;
-
-      // Check compatibility
-      const canDonateTo = BLOOD_COMPATIBILITY[donorBloodType];
-      return canDonateTo?.includes(requiredBloodType);
+      orderBy: [
+        { urgencyLevel: "desc" },
+        { requestDate: "asc" },
+      ],
     });
 
-    if (compatibleIntents.length === 0) continue;
+    if (pendingRequests.length === 0) return;
 
-    // 5. Pick the best donor
-    // For now: first available compatible donor
-    // (can be enhanced with proximity later)
-    const bestIntent = compatibleIntents[0];
-
-    // 6. Create the match and update all related records atomically
-    await prisma.$transaction(async (tx) => {
-      // Create the match record
-      await tx.match.create({
-        data: {
-          intentId: bestIntent.id,
-          requestId: request.id,
-          status: "Pending",
-        },
-      });
-
-      // Update donor intent status to Matched
-      await tx.donationIntent.update({
-        where: { id: bestIntent.id },
-        data: { status: "Matched" },
-      });
-
-      // Update request status to Matching
-      await tx.donationRequest.update({
-        where: { id: request.id },
-        data: { status: "Matching" },
-      });
-
-      // Notify the donor
-      await tx.notification.create({
-        data: {
-          userId: bestIntent.userId,
-          message: `You have been matched as a blood donor for a ${request.urgencyLevel} priority request. Please confirm your availability.`,
-        },
-      });
-
-      // Notify the recipient
-      await tx.notification.create({
-        data: {
-          userId: request.recipientId,
-          message: `Great news! A compatible blood donor has been found for your request. Please wait for donor confirmation.`,
-        },
-      });
+    // 2. Fetch all active blood donor intents
+    const activeIntents = await prisma.donationIntent.findMany({
+      where: {
+        category: "Blood",
+        status: "Active",
+      },
+      include: {
+        user: true,
+      },
     });
 
-    // Mark this intent as used for this run
-    usedIntentIds.add(bestIntent.id);
+    if (activeIntents.length === 0) return;
+
+    // 3. Track used intents in this run
+    // so one donor doesn't get matched to multiple recipients
+    const usedIntentIds = new Set();
+
+    // 4. Process each request
+    for (const request of pendingRequests) {
+      const requiredBloodType = request.requiredBloodType;
+
+      // Find compatible available donors for this request
+      const compatibleIntents = activeIntents.filter((intent) => {
+        if (usedIntentIds.has(intent.id)) return false;
+
+        const donorBloodType = intent.user.bloodType;
+        if (!donorBloodType) return false;
+
+        const canDonateTo = BLOOD_COMPATIBILITY[donorBloodType];
+        return canDonateTo?.includes(requiredBloodType);
+      });
+
+      if (compatibleIntents.length === 0) continue;
+
+      // 5. Pick best donor — first compatible available
+      const bestIntent = compatibleIntents[0];
+
+      // 6. Create match and update all records atomically
+      await prisma.$transaction(async (tx) => {
+        await tx.match.create({
+          data: {
+            intentId: bestIntent.id,
+            requestId: request.id,
+            status: "Pending",
+          },
+        });
+
+        await tx.donationIntent.update({
+          where: { id: bestIntent.id },
+          data: { status: "Matched" },
+        });
+
+        await tx.donationRequest.update({
+          where: { id: request.id },
+          data: { status: "Matching" },
+        });
+
+        await tx.notification.create({
+          data: {
+            userId: bestIntent.userId,
+            message: `You have been matched as a blood donor for a ${request.urgencyLevel} priority request. Please confirm your availability.`,
+          },
+        });
+
+        await tx.notification.create({
+          data: {
+            userId: request.recipientId,
+            message: `Great news! A compatible blood donor has been found for your ${request.urgencyLevel} priority request. Please wait for donor confirmation.`,
+          },
+        });
+      });
+
+      usedIntentIds.add(bestIntent.id);
+    }
+  } catch (error) {
+    console.error("runBloodMatching Error:", error);
+    throw error;
   }
 };
 
-
+// ─────────────────────────────────────────
+// Donor Response Handler
+// ─────────────────────────────────────────
 export const handleDonorResponse = async (matchId, donorId, accepted) => {
-  // 1. Fetch the match with related data
   const match = await prisma.match.findUnique({
     where: { id: matchId },
     include: {
@@ -137,14 +131,12 @@ export const handleDonorResponse = async (matchId, donorId, accepted) => {
     throw error;
   }
 
-  // 2. Verify the donor owns this intent
   if (match.intent.userId !== donorId) {
     const error = new Error("You are not authorized to respond to this match.");
     error.statusCode = 403;
     throw error;
   }
 
-  // 3. Verify match is in Notified or Pending state
   if (!["Pending", "Notified"].includes(match.status)) {
     const error = new Error("This match is no longer awaiting a response.");
     error.statusCode = 400;
@@ -154,7 +146,6 @@ export const handleDonorResponse = async (matchId, donorId, accepted) => {
   if (accepted) {
     // ── DONOR ACCEPTED ──
     await prisma.$transaction(async (tx) => {
-      // Update match status
       await tx.match.update({
         where: { id: matchId },
         data: {
@@ -163,7 +154,6 @@ export const handleDonorResponse = async (matchId, donorId, accepted) => {
         },
       });
 
-      // Notify recipient
       await tx.notification.create({
         data: {
           userId: match.request.recipientId,
@@ -171,7 +161,6 @@ export const handleDonorResponse = async (matchId, donorId, accepted) => {
         },
       });
 
-      // Notify donor with appointment details
       await tx.notification.create({
         data: {
           userId: donorId,
@@ -182,7 +171,6 @@ export const handleDonorResponse = async (matchId, donorId, accepted) => {
   } else {
     // ── DONOR DECLINED ──
     await prisma.$transaction(async (tx) => {
-      // Update match status
       await tx.match.update({
         where: { id: matchId },
         data: {
@@ -191,19 +179,16 @@ export const handleDonorResponse = async (matchId, donorId, accepted) => {
         },
       });
 
-      // Free up the donor intent back to Active
       await tx.donationIntent.update({
         where: { id: match.intentId },
         data: { status: "Active" },
       });
 
-      // Put request back to Pending for re-matching
       await tx.donationRequest.update({
         where: { id: match.requestId },
         data: { status: "Pending" },
       });
 
-      // Notify recipient
       await tx.notification.create({
         data: {
           userId: match.request.recipientId,
@@ -212,12 +197,14 @@ export const handleDonorResponse = async (matchId, donorId, accepted) => {
       });
     });
 
-    // Trigger re-matching immediately
+    // Re-match immediately
     await runBloodMatching();
   }
 };
 
-
+// ─────────────────────────────────────────
+// Admin: Confirm physical donation happened
+// ─────────────────────────────────────────
 export const confirmDonationCompletion = async (matchId, adminId) => {
   const match = await prisma.match.findUnique({
     where: { id: matchId },
@@ -240,7 +227,6 @@ export const confirmDonationCompletion = async (matchId, adminId) => {
   }
 
   await prisma.$transaction(async (tx) => {
-    // Complete the match
     await tx.match.update({
       where: { id: matchId },
       data: {
@@ -250,19 +236,17 @@ export const confirmDonationCompletion = async (matchId, adminId) => {
       },
     });
 
-    // Complete the donor intent
     await tx.donationIntent.update({
       where: { id: match.intentId },
       data: { status: "Completed" },
     });
 
-    // Fulfill the request
     await tx.donationRequest.update({
       where: { id: match.requestId },
       data: { status: "Fulfilled" },
     });
 
-    // Reset donor eligibility to Ineligible with 90 day cooldown
+    // Reset donor eligibility with 90 day cooldown
     await tx.userEligibilityStatus.update({
       where: {
         userId_category: {
@@ -276,7 +260,6 @@ export const confirmDonationCompletion = async (matchId, adminId) => {
       },
     });
 
-    // Notify donor
     await tx.notification.create({
       data: {
         userId: match.intent.userId,
@@ -284,7 +267,6 @@ export const confirmDonationCompletion = async (matchId, adminId) => {
       },
     });
 
-    // Notify recipient
     await tx.notification.create({
       data: {
         userId: match.request.recipientId,
@@ -292,4 +274,167 @@ export const confirmDonationCompletion = async (matchId, adminId) => {
       },
     });
   });
+};
+
+// ─────────────────────────────────────────
+// Admin: Get all blood matches
+// ─────────────────────────────────────────
+export const getAllBloodMatches = async (page = 1, limit = 20) => {
+  const skip = (page - 1) * limit;
+
+  const [matches, totalCount] = await Promise.all([
+    prisma.match.findMany({
+      skip,
+      take: limit,
+      where: {
+        intent: { category: "Blood" },
+      },
+      include: {
+        intent: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                FirstName: true,
+                LastName: true,
+                EmailAddress: true,
+                bloodType: true,
+              },
+            },
+          },
+        },
+        request: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                FirstName: true,
+                LastName: true,
+                EmailAddress: true,
+              },
+            },
+          },
+        },
+        confirmedByUser: {
+          select: {
+            id: true,
+            FirstName: true,
+            LastName: true,
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.match.count({
+      where: {
+        intent: { category: "Blood" },
+      },
+    }),
+  ]);
+
+  return {
+    matches,
+    totalCount,
+    totalPages: Math.ceil(totalCount / limit),
+    currentPage: page,
+  };
+};
+
+// ─────────────────────────────────────────
+// Admin: Get single match by ID
+// ─────────────────────────────────────────
+export const getBloodMatchById = async (matchId) => {
+  const match = await prisma.match.findUnique({
+    where: { id: matchId },
+    include: {
+      intent: {
+        include: {
+          user: {
+            select: {
+              id: true,
+              FirstName: true,
+              LastName: true,
+              EmailAddress: true,
+              bloodType: true,
+              PhoneNumber: true,
+            },
+          },
+        },
+      },
+      request: {
+        include: {
+          user: {
+            select: {
+              id: true,
+              FirstName: true,
+              LastName: true,
+              EmailAddress: true,
+              PhoneNumber: true,
+            },
+          },
+        },
+      },
+      confirmedByUser: {
+        select: {
+          id: true,
+          FirstName: true,
+          LastName: true,
+        },
+      },
+    },
+  });
+
+  if (!match) {
+    const error = new Error("Match not found.");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  return match;
+};
+
+// ─────────────────────────────────────────
+// Admin: Get all unmatched pending blood requests
+// ─────────────────────────────────────────
+export const getUnmatchedBloodRequests = async (page = 1, limit = 20) => {
+  const skip = (page - 1) * limit;
+
+  const [requests, totalCount] = await Promise.all([
+    prisma.donationRequest.findMany({
+      skip,
+      take: limit,
+      where: {
+        donationType: "Blood",
+        status: "Pending",
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            FirstName: true,
+            LastName: true,
+            EmailAddress: true,
+            PhoneNumber: true,
+          },
+        },
+      },
+      orderBy: [
+        { urgencyLevel: "desc" },
+        { requestDate: "asc" },
+      ],
+    }),
+    prisma.donationRequest.count({
+      where: {
+        donationType: "Blood",
+        status: "Pending",
+      },
+    }),
+  ]);
+
+  return {
+    requests,
+    totalCount,
+    totalPages: Math.ceil(totalCount / limit),
+    currentPage: page,
+  };
 };

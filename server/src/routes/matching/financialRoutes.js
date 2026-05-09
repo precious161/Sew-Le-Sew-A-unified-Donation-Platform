@@ -3,6 +3,7 @@ import { Router } from "express";
 import { protect } from "../../middleware/authMiddleware.js";
 import { authorize } from "../../middleware/users/roleMiddleware.js";
 import * as FinancialController from "../../controllers/matching/financialController.js";
+import { upload } from "../../config/cloudinary.js";
 
 const router = Router();
 
@@ -11,6 +12,7 @@ router.post(
   "/contribute",
   protect,
   authorize("Donor"),
+  upload.single("document"),
   FinancialController.submitContribution
 );
 
@@ -36,11 +38,18 @@ router.get(
   FinancialController.getAllContributions
 );
 
-router.patch(
-  "/:id/verify",
+router.get(
+  "/pending",
   protect,
   authorize("Red_Cross_Admin"),
-  FinancialController.verifyContribution
+  FinancialController.getPendingContributions
+);
+
+router.patch(
+  "/:id/review",
+  protect,
+  authorize("Red_Cross_Admin"),
+  FinancialController.reviewContribution
 );
 
 router.patch(
@@ -49,14 +58,6 @@ router.patch(
   authorize("Red_Cross_Admin"),
   FinancialController.allocateContribution
 );
-
-router.patch(
-  "/:id/reject",
-  protect,
-  authorize("Red_Cross_Admin"),
-  FinancialController.rejectContribution
-);
-
 
 router.patch(
   "/:contributionId/distribute/:requestId",

@@ -6,7 +6,7 @@ import * as InKindMatchingController from "../../controllers/matching/ inKindMat
 
 const router = Router();
 
-// Admin manually triggers matching engine if needed
+// ── Admin Routes ──
 router.post(
   "/run",
   protect,
@@ -14,20 +14,40 @@ router.post(
   InKindMatchingController.triggerInKindMatching
 );
 
-// Donor accepts or declines a match
-router.patch(
-  "/:id/respond",
+router.get(
+  "/",
   protect,
-  authorize("Donor"),
-  InKindMatchingController.respondToInKindMatch
+  authorize("Red_Cross_Admin"),
+  InKindMatchingController.getAllInKindMatches
 );
 
-// Admin confirms physical donation happened
+router.get(
+  "/unmatched",
+  protect,
+  authorize("Red_Cross_Admin"),
+  InKindMatchingController.getUnmatchedInKindRequests
+);
+
+router.get(
+  "/:id",
+  protect,
+  authorize("Red_Cross_Admin"),
+  InKindMatchingController.getInKindMatchById
+);
+
 router.patch(
   "/:id/complete",
   protect,
   authorize("Red_Cross_Admin"),
   InKindMatchingController.completeInKindDonation
+);
+
+// ── Donor Routes ──
+router.patch(
+  "/:id/respond",
+  protect,
+  authorize("Donor"),
+  InKindMatchingController.respondToInKindMatch
 );
 
 export default router;

@@ -1,110 +1,108 @@
-// inKindMatchingService.js
+
 import prisma from "../../config/db.js";
 
+// ─────────────────────────────────────────
+// Core In-Kind Matching Engine
+// ─────────────────────────────────────────
 export const runInKindMatching = async () => {
-  // 1. Fetch all pending In-Kind requests ordered by urgency and date
-  const pendingRequests = await prisma.donationRequest.findMany({
-    where: {
-      donationType: "In_Kind",
-      status: "Pending",
-      itemType: { not: null },
-    },
-    orderBy: [
-      { urgencyLevel: "desc" },
-      { requestDate: "asc" },
-    ],
-  });
-
-  if (pendingRequests.length === 0) return;
-
-  // 2. Fetch all active In-Kind donor intents
-  const activeIntents = await prisma.donationIntent.findMany({
-    where: {
-      category: "In_Kind",
-      status: "Active",
-      itemType: { not: null },
-    },
-  });
-
-  if (activeIntents.length === 0) return;
-
-  // 3. Track used intents in this run
-  const usedIntentIds = new Set();
-
-  // 4. Process each request
-  for (const request of pendingRequests) {
-    const requiredItem = request.itemType.toLowerCase().trim();
-    const requiredQuantity = request.itemQuantity || 1;
-
-    // Find compatible available donors for this request
-    const compatibleIntents = activeIntents.filter((intent) => {
-      // Skip already used intents in this run
-      if (usedIntentIds.has(intent.id)) return false;
-
-      // Item type must match (case-insensitive)
-      const offeredItem = intent.itemType?.toLowerCase().trim();
-      if (offeredItem !== requiredItem) return false;
-
-      // Donor quantity must fully cover the request (Option A)
-      const offeredQuantity = intent.quantity || 0;
-      if (offeredQuantity < requiredQuantity) return false;
-
-      return true;
+  try {
+    // 1. Fetch all verified pending In-Kind requests
+    const pendingRequests = await prisma.donationRequest.findMany({
+      where: {
+        donationType: "In_Kind",
+        status: "Pending",
+        itemType: { not: null },
+      },
+      orderBy: [
+        { urgencyLevel: "desc" },
+        { requestDate: "asc" },
+      ],
     });
 
-    if (compatibleIntents.length === 0) continue;
+    if (pendingRequests.length === 0) return;
 
-    // 5. Pick the best donor
-    // Prefer donor whose quantity is closest to the required amount
-    // to avoid over-allocating large donations to small requests
-    const bestIntent = compatibleIntents.sort((a, b) => {
-      const diffA = (a.quantity || 0) - requiredQuantity;
-      const diffB = (b.quantity || 0) - requiredQuantity;
-      return diffA - diffB;
-    })[0];
-
-    // 6. Create the match and update all related records atomically
-    await prisma.$transaction(async (tx) => {
-      // Create the match record
-      await tx.match.create({
-        data: {
-          intentId: bestIntent.id,
-          requestId: request.id,
-          status: "Pending",
-        },
-      });
-
-      // Update donor intent status to Matched
-      await tx.donationIntent.update({
-        where: { id: bestIntent.id },
-        data: { status: "Matched" },
-      });
-
-      // Update request status to Matching
-      await tx.donationRequest.update({
-        where: { id: request.id },
-        data: { status: "Matching" },
-      });
-
-      // Notify the donor
-      await tx.notification.create({
-        data: {
-          userId: bestIntent.userId,
-          message: `You have been matched for an In-Kind donation. A recipient needs ${requiredQuantity} unit(s) of ${request.itemType}. Please confirm your availability.`,
-        },
-      });
-
-      // Notify the recipient
-      await tx.notification.create({
-        data: {
-          userId: request.recipientId,
-          message: `Great news! A donor has been found for your ${request.itemType} request. Please wait for donor confirmation.`,
-        },
-      });
+    // 2. Fetch all active In-Kind donor intents
+    const activeIntents = await prisma.donationIntent.findMany({
+      where: {
+        category: "In_Kind",
+        status: "Active",
+        itemType: { not: null },
+      },
     });
 
-    // Mark this intent as used for this run
-    usedIntentIds.add(bestIntent.id);
+    if (activeIntents.length === 0) return;
+
+    // 3. Track used intents in this run
+    const usedIntentIds = new Set();
+
+    // 4. Process each request
+    for (const request of pendingRequests) {
+      const requiredItem = request.itemType.toLowerCase().trim();
+      const requiredQuantity = request.itemQuantity || 1;
+
+      // Find compatible donors for this request
+      const compatibleIntents = activeIntents.filter((intent) => {
+        if (usedIntentIds.has(intent.id)) return false;
+
+        const offeredItem = intent.itemType?.toLowerCase().trim();
+        if (offeredItem !== requiredItem) return false;
+
+        const offeredQuantity = intent.quantity || 0;
+        if (offeredQuantity < requiredQuantity) return false;
+
+        return true;
+      });
+
+      if (compatibleIntents.length === 0) continue;
+
+      // 5. Pick donor whose quantity is closest to required
+      // avoids over-allocating large donations to small requests
+      const bestIntent = [...compatibleIntents].sort((a, b) => {
+        const diffA = (a.quantity || 0) - requiredQuantity;
+        const diffB = (b.quantity || 0) - requiredQuantity;
+        return diffA - diffB;
+      })[0];
+
+      // 6. Create match and update all records atomically
+      await prisma.$transaction(async (tx) => {
+        await tx.match.create({
+          data: {
+            intentId: bestIntent.id,
+            requestId: request.id,
+            status: "Pending",
+          },
+        });
+
+        await tx.donationIntent.update({
+          where: { id: bestIntent.id },
+          data: { status: "Matched" },
+        });
+
+        await tx.donationRequest.update({
+          where: { id: request.id },
+          data: { status: "Matching" },
+        });
+
+        await tx.notification.create({
+          data: {
+            userId: bestIntent.userId,
+            message: `You have been matched for an In-Kind donation. A recipient needs ${requiredQuantity} unit(s) of ${request.itemType}. Please confirm your availability.`,
+          },
+        });
+
+        await tx.notification.create({
+          data: {
+            userId: request.recipientId,
+            message: `Great news! A donor has been found for your ${request.itemType} request. Please wait for donor confirmation.`,
+          },
+        });
+      });
+
+      usedIntentIds.add(bestIntent.id);
+    }
+  } catch (error) {
+    console.error("runInKindMatching Error:", error);
+    throw error;
   }
 };
 
@@ -126,14 +124,12 @@ export const handleInKindDonorResponse = async (matchId, donorId, accepted) => {
     throw error;
   }
 
-  // Verify the donor owns this intent
   if (match.intent.userId !== donorId) {
     const error = new Error("You are not authorized to respond to this match.");
     error.statusCode = 403;
     throw error;
   }
 
-  // Verify match is awaiting response
   if (!["Pending", "Notified"].includes(match.status)) {
     const error = new Error("This match is no longer awaiting a response.");
     error.statusCode = 400;
@@ -151,7 +147,6 @@ export const handleInKindDonorResponse = async (matchId, donorId, accepted) => {
         },
       });
 
-      // Notify recipient
       await tx.notification.create({
         data: {
           userId: match.request.recipientId,
@@ -159,7 +154,6 @@ export const handleInKindDonorResponse = async (matchId, donorId, accepted) => {
         },
       });
 
-      // Notify donor
       await tx.notification.create({
         data: {
           userId: donorId,
@@ -178,19 +172,16 @@ export const handleInKindDonorResponse = async (matchId, donorId, accepted) => {
         },
       });
 
-      // Free up the donor intent back to Active
       await tx.donationIntent.update({
         where: { id: match.intentId },
         data: { status: "Active" },
       });
 
-      // Put request back to Pending for re-matching
       await tx.donationRequest.update({
         where: { id: match.requestId },
         data: { status: "Pending" },
       });
 
-      // Notify recipient
       await tx.notification.create({
         data: {
           userId: match.request.recipientId,
@@ -199,13 +190,13 @@ export const handleInKindDonorResponse = async (matchId, donorId, accepted) => {
       });
     });
 
-    // Trigger re-matching immediately
+    // Re-match immediately
     await runInKindMatching();
   }
 };
 
 // ─────────────────────────────────────────
-// Admin Completion Handler
+// Admin: Confirm physical donation happened
 // ─────────────────────────────────────────
 export const confirmInKindCompletion = async (matchId, adminId) => {
   const match = await prisma.match.findUnique({
@@ -229,7 +220,6 @@ export const confirmInKindCompletion = async (matchId, adminId) => {
   }
 
   await prisma.$transaction(async (tx) => {
-    // Complete the match
     await tx.match.update({
       where: { id: matchId },
       data: {
@@ -239,27 +229,37 @@ export const confirmInKindCompletion = async (matchId, adminId) => {
       },
     });
 
-    // Complete the donor intent
     await tx.donationIntent.update({
       where: { id: match.intentId },
       data: { status: "Completed" },
     });
 
-    // Fulfill the request
     await tx.donationRequest.update({
       where: { id: match.requestId },
       data: { status: "Fulfilled" },
     });
 
-    // Notify donor
-    await tx.notification.create({
+    // Reset donor eligibility with 30 day cooldown for In-Kind
+    await tx.userEligibilityStatus.update({
+      where: {
+        userId_category: {
+          userId: match.intent.userId,
+          category: "In_Kind",
+        },
+      },
       data: {
-        userId: match.intent.userId,
-        message: `Your In-Kind donation of ${match.intent.quantity} unit(s) of ${match.intent.itemType} has been completed and confirmed. Thank you for your generosity!`,
+        status: "Ineligible",
+        ineligibleUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
       },
     });
 
-    // Notify recipient
+    await tx.notification.create({
+      data: {
+        userId: match.intent.userId,
+        message: `Your In-Kind donation of ${match.intent.quantity} unit(s) of ${match.intent.itemType} has been completed and confirmed. Thank you for your generosity! You will be eligible to donate again in 30 days.`,
+      },
+    });
+
     await tx.notification.create({
       data: {
         userId: match.request.recipientId,
@@ -267,4 +267,165 @@ export const confirmInKindCompletion = async (matchId, adminId) => {
       },
     });
   });
+};
+
+// ─────────────────────────────────────────
+// Admin: Get all In-Kind matches
+// ─────────────────────────────────────────
+export const getAllInKindMatches = async (page = 1, limit = 20) => {
+  const skip = (page - 1) * limit;
+
+  const [matches, totalCount] = await Promise.all([
+    prisma.match.findMany({
+      skip,
+      take: limit,
+      where: {
+        intent: { category: "In_Kind" },
+      },
+      include: {
+        intent: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                FirstName: true,
+                LastName: true,
+                EmailAddress: true,
+              },
+            },
+          },
+        },
+        request: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                FirstName: true,
+                LastName: true,
+                EmailAddress: true,
+              },
+            },
+          },
+        },
+        confirmedByUser: {
+          select: {
+            id: true,
+            FirstName: true,
+            LastName: true,
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.match.count({
+      where: {
+        intent: { category: "In_Kind" },
+      },
+    }),
+  ]);
+
+  return {
+    matches,
+    totalCount,
+    totalPages: Math.ceil(totalCount / limit),
+    currentPage: page,
+  };
+};
+
+// ─────────────────────────────────────────
+// Admin: Get single In-Kind match by ID
+// ─────────────────────────────────────────
+export const getInKindMatchById = async (matchId) => {
+  const match = await prisma.match.findUnique({
+    where: { id: matchId },
+    include: {
+      intent: {
+        include: {
+          user: {
+            select: {
+              id: true,
+              FirstName: true,
+              LastName: true,
+              EmailAddress: true,
+              PhoneNumber: true,
+            },
+          },
+        },
+      },
+      request: {
+        include: {
+          user: {
+            select: {
+              id: true,
+              FirstName: true,
+              LastName: true,
+              EmailAddress: true,
+              PhoneNumber: true,
+            },
+          },
+        },
+      },
+      confirmedByUser: {
+        select: {
+          id: true,
+          FirstName: true,
+          LastName: true,
+        },
+      },
+    },
+  });
+
+  if (!match) {
+    const error = new Error("Match not found.");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  return match;
+};
+
+// ─────────────────────────────────────────
+// Admin: Get all unmatched pending In-Kind requests
+// ─────────────────────────────────────────
+export const getUnmatchedInKindRequests = async (page = 1, limit = 20) => {
+  const skip = (page - 1) * limit;
+
+  const [requests, totalCount] = await Promise.all([
+    prisma.donationRequest.findMany({
+      skip,
+      take: limit,
+      where: {
+        donationType: "In_Kind",
+        status: "Pending",
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            FirstName: true,
+            LastName: true,
+            EmailAddress: true,
+            PhoneNumber: true,
+          },
+        },
+      },
+      orderBy: [
+        { urgencyLevel: "desc" },
+        { requestDate: "asc" },
+      ],
+    }),
+    prisma.donationRequest.count({
+      where: {
+        donationType: "In_Kind",
+        status: "Pending",
+      },
+    }),
+  ]);
+
+  return {
+    requests,
+    totalCount,
+    totalPages: Math.ceil(totalCount / limit),
+    currentPage: page,
+  };
 };
