@@ -1,6 +1,9 @@
 
 import * as BloodMatchingService from "../../services/matching/bloodMatchingService.js";
 
+// ─────────────────────────────────────────
+// Admin: Manually trigger matching engine
+// ─────────────────────────────────────────
 export const triggerBloodMatching = async (req, res) => {
   try {
     await BloodMatchingService.runBloodMatching();
@@ -18,6 +21,81 @@ export const triggerBloodMatching = async (req, res) => {
   }
 };
 
+// ─────────────────────────────────────────
+// Admin: Get all blood matches
+// ─────────────────────────────────────────
+export const getAllBloodMatches = async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+
+    const result = await BloodMatchingService.getAllBloodMatches(page, limit);
+
+    return res.status(200).json({
+      success: true,
+      ...result,
+    });
+  } catch (error) {
+    console.error("getAllBloodMatches Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch blood matches.",
+    });
+  }
+};
+
+// ─────────────────────────────────────────
+// Admin: Get single match by ID
+// ─────────────────────────────────────────
+export const getBloodMatchById = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const match = await BloodMatchingService.getBloodMatchById(id);
+
+    return res.status(200).json({
+      success: true,
+      data: match,
+    });
+  } catch (error) {
+    console.error("getBloodMatchById Error:", error);
+    const status = error.statusCode || 500;
+    return res.status(status).json({
+      success: false,
+      message: error.message || "Failed to fetch match.",
+    });
+  }
+};
+
+// ─────────────────────────────────────────
+// Admin: Get unmatched pending blood requests
+// ─────────────────────────────────────────
+export const getUnmatchedBloodRequests = async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+
+    const result = await BloodMatchingService.getUnmatchedBloodRequests(
+      page,
+      limit
+    );
+
+    return res.status(200).json({
+      success: true,
+      ...result,
+    });
+  } catch (error) {
+    console.error("getUnmatchedBloodRequests Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch unmatched blood requests.",
+    });
+  }
+};
+
+// ─────────────────────────────────────────
+// Donor: Accept or decline a match
+// ─────────────────────────────────────────
 export const respondToMatch = async (req, res) => {
   try {
     const matchId = req.params.id;
@@ -49,6 +127,9 @@ export const respondToMatch = async (req, res) => {
   }
 };
 
+// ─────────────────────────────────────────
+// Admin: Confirm physical donation happened
+// ─────────────────────────────────────────
 export const completeBloodDonation = async (req, res) => {
   try {
     const matchId = req.params.id;

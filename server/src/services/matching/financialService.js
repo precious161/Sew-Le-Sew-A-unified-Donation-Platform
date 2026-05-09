@@ -1,6 +1,9 @@
 
 import prisma from "../../config/db.js";
 
+// ─────────────────────────────────────────
+// Helper: Get minimum amount from MedicalStandard
+// ─────────────────────────────────────────
 const getMinimumAmount = async () => {
   const standard = await prisma.medicalStandard.findUnique({
     where: {
@@ -12,43 +15,57 @@ const getMinimumAmount = async () => {
   });
 
   if (!standard) {
-    throw new Error("Financial minimum amount standard not found. Please seed the database.");
+    throw new Error(
+      "Financial minimum amount standard not found. Please seed the database."
+    );
   }
 
   return parseFloat(standard.value);
 };
 
 // ─────────────────────────────────────────
-// Donor: Submit a contribution pledge
+// Donor: Submit a contribution pledge + proof of transfer
 // ─────────────────────────────────────────
 export const submitContribution = async (donorId, data) => {
-  const { amount, currency, purpose } = data;
+  const { amount, currency, purpose, documentUrl } = data;
 
-  // 1. Fetch minimum amount from MedicalStandard
-  const minAmount = await getMinimumAmount();
-
-  if (amount < minAmount) {
-    const error = new Error(`Minimum contribution amount is ${minAmount} ETB.`);
+  // 1. Document required — proof of transfer
+  if (!documentUrl) {
+    const error = new Error(
+      "Proof of transfer document is required. Please upload your bank or Telebirr transfer receipt."
+    );
     error.statusCode = 400;
     throw error;
   }
 
-  // 2. Create the contribution pledge
+  // 2. Fetch minimum amount from MedicalStandard
+  const minAmount = await getMinimumAmount();
+
+  if (amount < minAmount) {
+    const error = new Error(
+      `Minimum contribution amount is ${minAmount} ETB.`
+    );
+    error.statusCode = 400;
+    throw error;
+  }
+
+  // 3. Create the contribution pledge
   const contribution = await prisma.financialContribution.create({
     data: {
       donorId,
       amount,
       currency: currency || "ETB",
-      purpose,
+      purpose: purpose || null,
+      documentUrl,
       status: "Pending",
     },
   });
 
-  // 3. Notify the donor
+  // 4. Notify the donor
   await prisma.notification.create({
     data: {
       userId: donorId,
-      message: `Your contribution pledge of ${amount} ${currency || "ETB"} has been received. Please complete your bank or Telebirr transfer and wait for admin verification.`,
+      message: `Your contribution pledge of ${amount} ${currency || "ETB"} has been submitted with your proof of transfer. The Red Cross will verify your payment shortly.`,
     },
   });
 
@@ -59,7 +76,6 @@ export const submitContribution = async (donorId, data) => {
 // Donor: Cancel a pending contribution
 // ─────────────────────────────────────────
 export const cancelContribution = async (donorId, contributionId) => {
-  // 1. Fetch the contribution
   const contribution = await prisma.financialContribution.findUnique({
     where: { id: contributionId },
   });
@@ -70,14 +86,14 @@ export const cancelContribution = async (donorId, contributionId) => {
     throw error;
   }
 
-  // 2. Verify the donor owns this contribution
   if (contribution.donorId !== donorId) {
-    const error = new Error("You are not authorized to cancel this contribution.");
+    const error = new Error(
+      "You are not authorized to cancel this contribution."
+    );
     error.statusCode = 403;
     throw error;
   }
 
-  // 3. Only Pending contributions can be cancelled
   if (contribution.status !== "Pending") {
     const error = new Error(
       `This contribution cannot be cancelled. Current status: ${contribution.status}.`
@@ -86,13 +102,11 @@ export const cancelContribution = async (donorId, contributionId) => {
     throw error;
   }
 
-  // 4. Mark as Failed (cancelled by donor)
   const updated = await prisma.financialContribution.update({
     where: { id: contributionId },
     data: { status: "Failed" },
   });
 
-  // 5. Notify donor
   await prisma.notification.create({
     data: {
       userId: donorId,
@@ -147,9 +161,49 @@ export const getAllContributions = async (page = 1, limit = 20) => {
 };
 
 // ─────────────────────────────────────────
-// Admin: Verify a contribution
+// Admin: Get all pending contributions
 // ─────────────────────────────────────────
-export const verifyContribution = async (adminId, contributionId) => {
+export const getPendingContributions = async (page = 1, limit = 20) => {
+  const skip = (page - 1) * limit;
+
+  const [contributions, totalCount] = await Promise.all([
+    prisma.financialContribution.findMany({
+      skip,
+      take: limit,
+      where: { status: "Pending" },
+      orderBy: { createdAt: "asc" },
+      include: {
+        donor: {
+          select: {
+            id: true,
+            FirstName: true,
+            LastName: true,
+            EmailAddress: true,
+            PhoneNumber: true,
+          },
+        },
+      },
+    }),
+    prisma.financialContribution.count({
+      where: { status: "Pending" },
+    }),
+  ]);
+
+  return {
+    contributions,
+    totalCount,
+    totalPages: Math.ceil(totalCount / limit),
+    currentPage: page,
+  };
+};
+
+// ─────────────────────────────────────────
+// Admin: Review a contribution (approve or reject)
+// Replaces separate verifyContribution and rejectContribution
+// ─────────────────────────────────────────
+export const reviewContribution = async (adminId, contributionId, data) => {
+  const { approved, rejectionReason } = data;
+
   const contribution = await prisma.financialContribution.findUnique({
     where: { id: contributionId },
   });
@@ -162,35 +216,66 @@ export const verifyContribution = async (adminId, contributionId) => {
 
   if (contribution.status !== "Pending") {
     const error = new Error(
-      `Only pending contributions can be verified. Current status: ${contribution.status}.`
+      `Only pending contributions can be reviewed. Current status: ${contribution.status}.`
     );
     error.statusCode = 400;
     throw error;
   }
 
-  const updated = await prisma.financialContribution.update({
-    where: { id: contributionId },
-    data: {
-      status: "Verified",
-      verifiedAt: new Date(),
-    },
-  });
+  if (approved) {
+    // ── APPROVED ──
+    await prisma.financialContribution.update({
+      where: { id: contributionId },
+      data: {
+        status: "Verified",
+        verifiedBy: adminId,
+        verifiedAt: new Date(),
+      },
+    });
 
-  // Notify donor
-  await prisma.notification.create({
-    data: {
-      userId: contribution.donorId,
-      message: `Your contribution of ${contribution.amount} ${contribution.currency} has been verified by the Red Cross. Thank you for your generosity!`,
-    },
-  });
+    await prisma.notification.create({
+      data: {
+        userId: contribution.donorId,
+        message: `Your contribution of ${contribution.amount} ${contribution.currency} has been verified by the Red Cross. Thank you for your generosity! Your funds will be allocated to verified recipients shortly.`,
+      },
+    });
+  } else {
+    // ── REJECTED ──
+    if (!rejectionReason) {
+      const error = new Error(
+        "Rejection reason is required when rejecting a contribution."
+      );
+      error.statusCode = 400;
+      throw error;
+    }
 
-  return updated;
+    await prisma.financialContribution.update({
+      where: { id: contributionId },
+      data: {
+        status: "Failed",
+        verifiedBy: adminId,
+        verifiedAt: new Date(),
+        rejectionReason,
+      },
+    });
+
+    await prisma.notification.create({
+      data: {
+        userId: contribution.donorId,
+        message: `Your contribution pledge of ${contribution.amount} ${contribution.currency} could not be verified. Reason: ${rejectionReason}. Please contact the Red Cross for more information.`,
+      },
+    });
+  }
 };
 
 // ─────────────────────────────────────────
-// Admin: Allocate a contribution
+// Admin: Allocate a verified contribution
 // ─────────────────────────────────────────
-export const allocateContribution = async (adminId, contributionId, allocationNote) => {
+export const allocateContribution = async (
+  adminId,
+  contributionId,
+  allocationNote
+) => {
   const contribution = await prisma.financialContribution.findUnique({
     where: { id: contributionId },
   });
@@ -219,7 +304,6 @@ export const allocateContribution = async (adminId, contributionId, allocationNo
     },
   });
 
-  // Notify donor
   await prisma.notification.create({
     data: {
       userId: contribution.donorId,
@@ -231,46 +315,15 @@ export const allocateContribution = async (adminId, contributionId, allocationNo
 };
 
 // ─────────────────────────────────────────
-// Admin: Reject a contribution
+// Admin: Distribute funds to a verified recipient request
 // ─────────────────────────────────────────
-export const rejectContribution = async (adminId, contributionId) => {
-  const contribution = await prisma.financialContribution.findUnique({
-    where: { id: contributionId },
-  });
-
-  if (!contribution) {
-    const error = new Error("Contribution not found.");
-    error.statusCode = 404;
-    throw error;
-  }
-
-  if (contribution.status !== "Pending") {
-    const error = new Error(
-      `Only pending contributions can be rejected. Current status: ${contribution.status}.`
-    );
-    error.statusCode = 400;
-    throw error;
-  }
-
-  const updated = await prisma.financialContribution.update({
-    where: { id: contributionId },
-    data: { status: "Failed" },
-  });
-
-  // Notify donor
-  await prisma.notification.create({
-    data: {
-      userId: contribution.donorId,
-      message: `Your contribution pledge of ${contribution.amount} ${contribution.currency} could not be verified. Please contact the Red Cross for more information.`,
-    },
-  });
-
-  return updated;
-};
-
-
-export const distributeToRecipient = async (adminId, contributionId, requestId, amount, note) => {
-  // 1. Fetch the contribution
+export const distributeToRecipient = async (
+  adminId,
+  contributionId,
+  requestId,
+  amount,
+  note
+) => {
   const contribution = await prisma.financialContribution.findUnique({
     where: { id: contributionId },
   });
@@ -289,7 +342,6 @@ export const distributeToRecipient = async (adminId, contributionId, requestId, 
     throw error;
   }
 
-  // 2. Fetch the recipient request
   const request = await prisma.donationRequest.findUnique({
     where: { id: requestId },
   });
@@ -301,7 +353,9 @@ export const distributeToRecipient = async (adminId, contributionId, requestId, 
   }
 
   if (request.donationType !== "Financial") {
-    const error = new Error("This request is not a financial donation request.");
+    const error = new Error(
+      "This request is not a financial donation request."
+    );
     error.statusCode = 400;
     throw error;
   }
@@ -314,9 +368,7 @@ export const distributeToRecipient = async (adminId, contributionId, requestId, 
     throw error;
   }
 
-  // 3. Process distribution atomically
   await prisma.$transaction(async (tx) => {
-    // Mark contribution as allocated
     await tx.financialContribution.update({
       where: { id: contributionId },
       data: {
@@ -327,13 +379,11 @@ export const distributeToRecipient = async (adminId, contributionId, requestId, 
       },
     });
 
-    // Mark request as fulfilled
     await tx.donationRequest.update({
       where: { id: requestId },
       data: { status: "Fulfilled" },
     });
 
-    // Notify donor
     await tx.notification.create({
       data: {
         userId: contribution.donorId,
@@ -341,7 +391,6 @@ export const distributeToRecipient = async (adminId, contributionId, requestId, 
       },
     });
 
-    // Notify recipient
     await tx.notification.create({
       data: {
         userId: request.recipientId,
