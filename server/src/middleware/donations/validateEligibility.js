@@ -1,10 +1,11 @@
 import { StatusCodes } from "http-status-codes";
 
 export const validate = (schema) => {
-  // If the route setup is broken, this will catch it when the server starts
+
   if (!schema || typeof schema.safeParse !== 'function') {
-    console.error("❌ VALIDATION ERROR: The schema passed to the middleware is invalid!");
-    console.error("Value received:", schema);
+    throw new Error(
+      `VALIDATION SETUP ERROR: Invalid schema passed to validate() middleware. Received: ${JSON.stringify(schema)}`
+    );
   }
 
   return (req, res, next) => {
@@ -25,7 +26,6 @@ export const validate = (schema) => {
       req.body = result.data;
       next();
     } catch (err) {
-      // This will catch the '_zod' error and tell us why
       console.error("Zod Internal Crash:", err.message);
       return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         success: false,
