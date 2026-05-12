@@ -63,9 +63,11 @@ model User {
   verifiedRequests       DonationRequest[]       @relation("RequestVerifier")
   verifiedContributions  FinancialContribution[] @relation("FinancialVerifier")
 
-
   verifiedIdentities     User[]                  @relation("IdentityVerifier")
   identityVerifierAdmin  User?                   @relation("IdentityVerifier", fields: [identityVerifiedBy], references: [id])
+
+  // NEW: Relation for tracking which admin verified an Organ Donor Intent
+  verifiedIntents        DonationIntent[]        @relation("IntentVerifier")
 }
 
 model BlacklistedToken {
@@ -148,7 +150,9 @@ model UserEligibilityStatus {
   @@id([userId, category])
 }
 
+// NEW: Added PendingVerification to the Intent Status
 enum IntentStatus {
+  PendingVerification
   Active
   Matched
   Completed
@@ -163,16 +167,24 @@ model DonationIntent {
   plannedDate DateTime
   status      IntentStatus @default(Active)
 
-  // In-Kind specific fields
+  // In-Kind & Organ specific fields
   itemType    String?
   quantity    Int?
+
+  // --- NEW: MEDICAL DOCUMENT VERIFICATION FIELDS ---
+  documentUrl     String?
+  verifiedBy      String?
+  verifiedAt      DateTime?
+  rejectionReason String?
+  // -------------------------------------------------
 
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 
   // Relations
-  user    User    @relation(fields: [userId], references: [id])
-  matches Match[]
+  user            User    @relation(fields: [userId], references: [id])
+  verifiedByUser  User?   @relation("IntentVerifier", fields: [verifiedBy], references: [id]) // NEW
+  matches         Match[]
 }
 
 enum UrgencyLevel {

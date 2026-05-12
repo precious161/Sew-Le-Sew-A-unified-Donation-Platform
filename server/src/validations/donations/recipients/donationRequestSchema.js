@@ -3,9 +3,9 @@ import { z } from "zod";
 
 export const donationRequestSchema = z.object({
   body: z.object({
-    donationType: z.enum(["Blood", "In_Kind", "Financial"], {
+    donationType: z.enum(["Blood", "In_Kind", "Financial", "Organ"], {
       errorMap: () => ({
-        message: "Donation type must be Blood or In_Kind or Financial.",
+        message: "Donation type must be Blood, In_Kind, Financial or Organ",
       }),
     }),
 
