@@ -1,5 +1,8 @@
 import React from 'react';
-import { LayoutDashboard, UserCircle, Heart, LogOut, ShieldAlert } from 'lucide-react';
+import { 
+  LayoutDashboard, UserCircle, Heart, LogOut, ShieldAlert, 
+  Users, UserPlus, Activity, FilePlus, History, HeartPulse, ClipboardCheck 
+} from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import AuthService from '../../services/AuthService';
@@ -8,82 +11,104 @@ const Sidebar = ({ isDarkMode }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, setUser } = useAuth();
-
   
   const isAdmin = user?.Role === 'Red_Cross_Admin';
+  const isDonor = user?.Role === 'Donor';
+  const isRecipient = user?.Role === 'Recipient';
 
   const handleLogout = async () => {
     setUser(null);
     await AuthService.logout();
   };
 
+  const isActive = (path) => location.pathname === path;
+
   return (
     <div className={`w-72 h-screen flex flex-col p-6 fixed left-0 top-0 z-50 shadow-2xl transition-colors duration-500 ${
       isDarkMode ? 'bg-[#0b1121] border-r border-white/5' : 'bg-[#111C44]'
     }`}>
       {/* Logo */}
-      <div className="flex items-center gap-3 mb-16 mt-4 px-2">
-        <div className="bg-medical-red p-2.5 rounded-2xl shadow-lg shadow-red-900/40">
+      <div className="flex items-center gap-3 mb-16 mt-4 px-2 cursor-pointer" onClick={() => navigate('/')}>
+        <div className="bg-medical-red p-2.5 rounded-2xl shadow-lg">
           <Heart size={24} fill="white" className="text-white" />
         </div>
-        <span className="text-2xl font-black tracking-tighter  text-white leading-none">
-          Sew Le Sew
-        </span>
+        <span className="text-2xl font-black tracking-tighter text-white leading-none uppercase">Sew<span className="font-light italic px-0.5 text-medical-red">le</span>Sew</span>
       </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 space-y-3">
-        {/*  Admin Panel*/}
-        <button
-          onClick={() => navigate(isAdmin ? '/admin' : '/dashboard')}
-          className={`w-full flex items-center gap-4 px-6 py-4 rounded-[22px] transition-all font-bold text-xs  tracking-widest ${
-            (location.pathname === '/dashboard' || location.pathname === '/admin')
-            ? 'bg-medical-red text-white shadow-xl shadow-red-900/40' 
-            : 'text-white/40 hover:bg-white/5 hover:text-white'
-          }`}
-        >
-          {isAdmin ? <ShieldAlert size={18}/> : <LayoutDashboard size={18}/>}
-          {isAdmin ? 'Admin Panel' : 'Dashboard'}
-        </button>
+      <nav className="flex-1 space-y-2 overflow-y-auto custom-scrollbar pr-2">
+        {/* SHARED: Dashboard */}
+        <NavItem 
+          icon={isAdmin ? <ShieldAlert size={18}/> : <LayoutDashboard size={18}/>} 
+          label={isAdmin ? 'Admin Panel' : 'Overview'} 
+          active={isActive('/admin') || isActive('/dashboard')} 
+          onClick={() => navigate(isAdmin ? '/admin' : '/dashboard')} 
+        />
 
-        <button
-          onClick={() => navigate('/profile')}
-          className={`w-full flex items-center gap-4 px-6 py-4 rounded-[22px] transition-all font-bold text-xs tracking-widest ${
-            location.pathname === '/profile' 
-            ? 'bg-medical-red text-white shadow-xl' 
-            : 'text-white/40 hover:bg-white/5 hover:text-white'
-          }`}
-        >
-          <UserCircle size={18}/> Profile
-        </button>
+        {/* --- ADMIN LINKS --- */}
+        {isAdmin && (
+          <>
+            <div className="pt-4 pb-2 px-6 text-[9px] font-black text-white/20 uppercase tracking-[0.3em]">Registry</div>
+            <NavItem icon={<Users size={18}/>} label="Donors" active={isActive('/admin/donors')} onClick={() => navigate('/admin/donors')} />
+            <NavItem icon={<UserPlus size={18}/>} label="Recipients" active={isActive('/admin/recipients')} onClick={() => navigate('/admin/recipients')} />
+          </>
+        )}
+
+        {/* --- RECIPIENT LINKS --- */}
+        {isRecipient && (
+          <>
+            <div className="pt-4 pb-2 px-6 text-[9px] font-black text-white/20 uppercase tracking-[0.3em]">Donation Management</div>
+            <NavItem icon={<Activity size={18}/>} label="Medical Profile" active={isActive('/recipient/health-profile')} onClick={() => navigate('/recipient/health-profile')} />
+            <NavItem icon={<FilePlus size={18}/>} label="New Request" active={isActive('/recipient/new-request')} onClick={() => navigate('/recipient/new-request')} />
+            <NavItem icon={<History size={18}/>} label="My Requests" active={isActive('/recipient/my-requests')} onClick={() => navigate('/recipient/my-requests')} />
+          </>
+        )}
+
+        {/* --- DONOR LINKS --- */}
+        {isDonor && (
+          <>
+            <div className="pt-4 pb-2 px-6 text-[9px] font-black text-white/20 uppercase tracking-[0.3em]">Contribution Hub</div>
+            <NavItem icon={<ClipboardCheck size={18}/>} label="Donor Screening" active={isActive('/donor/eligibility')} onClick={() => navigate('/donor/eligibility')} />
+            <NavItem icon={<HeartPulse size={18}/>} label="Donate Now" active={isActive('/donor/register-intent')} onClick={() => navigate('/donor/register-intent')} />
+          </>
+        )}
+
+        <div className="pt-4 border-t border-white/5"></div>
+        <NavItem icon={<UserCircle size={18}/>} label="Account Profile" active={isActive('/profile')} onClick={() => navigate('/profile')} />
       </nav>
 
-      {/* Bottom Profile Area  */}
+      {/* User Status Card */}
       <div className="pt-6 border-t border-white/5">
-        <div className="flex items-center gap-4 mb-6 p-2">
-          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black border-2 border-white/10 shadow-lg ${isAdmin ? 'bg-[#FFB800] text-[#111C44]' : 'bg-medical-red text-white'}`}>
+        <div className="flex items-center gap-4 mb-6 p-2 text-white">
+          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black ${isAdmin ? 'bg-[#FFB800] text-[#111C44]' : 'bg-medical-red'}`}>
             {user?.FirstName?.[0]}
           </div>
-          <div className="overflow-hidden text-left">
-            <p className="text-sm font-black  truncate text-white leading-tight">
-              {user?.FirstName}
-            </p>
-            <p className={`text-[9px] font-black  tracking-[0.15em] mt-1 ${isAdmin ? 'text-red-400' : 'text-[#05CD99]'}`}>
-                {isAdmin ? 'ADMINISTRATOR' : user?.Role}
+          <div className="overflow-hidden">
+            <p className="text-sm font-black truncate leading-tight uppercase tracking-tighter">{user?.FirstName}</p>
+            <p className={`text-[8px] font-black tracking-widest mt-1 uppercase ${isAdmin ? 'text-red-400' : 'text-[#05CD99]'}`}>
+                {isAdmin ? 'System Admin' : user?.Role}
             </p>
           </div>
         </div>
-        
-        <button 
-          onClick={handleLogout}
-          className="w-full flex items-center gap-4 px-6 py-4 text-white/30 hover:text-medical-red transition-all font-black text-xs uppercase tracking-widest"
-        >
-          <LogOut size={18} />
-          <span>Logout</span>
+        <button onClick={handleLogout} className="w-full flex items-center gap-4 px-6 py-4 text-white/30 hover:text-medical-red transition-all font-black text-xs uppercase tracking-widest">
+          <LogOut size={18} /><span>Secure Logout</span>
         </button>
       </div>
     </div>
   );
 };
+
+// Reusable Nav Item Component for clean code
+const NavItem = ({ icon, label, active, onClick }) => (
+  <button
+    onClick={onClick}
+    className={`w-full flex items-center gap-4 px-6 py-4 rounded-[22px] transition-all font-bold text-xs tracking-widest ${
+      active 
+      ? 'bg-medical-red text-white shadow-xl shadow-red-900/40 translate-x-2' 
+      : 'text-white/40 hover:bg-white/5 hover:text-white'
+    }`}
+  >
+    {icon} {label}
+  </button>
+);
 
 export default Sidebar;

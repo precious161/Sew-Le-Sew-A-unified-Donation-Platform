@@ -1,0 +1,61 @@
+import axios from '../api/axios';
+
+const DonationService = {
+  // ─── RECIPIENT ACTIONS (The "Need" Side) ───
+
+  // 1. Submit basic health profile (Prerequisite)
+  submitHealthInfo: async (healthData) => {
+    const response = await axios.post('/donations/recipient/health-info', healthData);
+    return response.data;
+  },
+
+  // 2. Submit a donation request (Includes File Upload)
+  createDonationRequest: async (formData) => {
+    const response = await axios.post('/donations/recipient/request', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data;
+  },
+
+  // 3. Cancel a pending request
+  cancelRequest: async (requestId) => {
+    const response = await axios.patch(`/donations/recipient/request/${requestId}/cancel`);
+    return response.data;
+  },
+
+  // ─── DONOR ACTIONS (The "Give" Side) ───
+
+  // 4. Run the WHO Eligibility Check
+  checkEligibility: async (category, answers) => {
+    const response = await axios.post('/donations/donor/check', { category, answers });
+    return response.data;
+  },
+
+  // 5. Register the intent/pledge to donate
+  registerIntent: async (intentData) => {
+    const response = await axios.post('/donations/donor/register-intent', intentData);
+    return response.data;
+  },
+
+  // 6. View donor's own history
+  getMyIntents: async () => {
+    const response = await axios.get('/donations/donor/my-intents');
+    return response.data;
+  },
+
+  // ─── ADMIN ACTIONS (The "Verify" Side) ───
+
+  // 7. Get requests waiting for medical document verification
+  getPendingRequests: async (page = 1, limit = 20) => {
+    const response = await axios.get(`/donations/recipient/requests/pending-verification?page=${page}&limit=${limit}`);
+    return response.data;
+  },
+
+  // 8. Approve or Reject the request
+  verifyRequest: async (requestId, decisionData) => {
+    const response = await axios.patch(`/donations/recipient/requests/${requestId}/verify`, decisionData);
+    return response.data;
+  }
+};
+
+export default DonationService;
