@@ -1,16 +1,16 @@
 import prisma from "../../../config/db.js";
 import { runBloodMatching } from "../../matching/bloodMatchingService.js";
 import { runInKindMatching } from "../../matching/inKindMatchingService.js";
+import { runOrganMatching } from "../../matching/organMatchingService.js";
 
 export const registerIntent = async (userId, data) => {
   const currentUser = await prisma.user.findUnique({ where: { id: userId } });
   if (!currentUser || currentUser.identityStatus !== "Verified") {
     const error = new Error("Identity Verification Required. Please upload your National ID/Passport to register a donation.");
-    error.statusCode = 403;
+    error.statusCode = 403; // Forbidden
     throw error;
   }
 
-  // --- CHANGED: Added documentUrl ---
   const { category, plannedDate, location, itemType, quantity, documentUrl } = data;
 
   if (category === "Financial") {
@@ -19,7 +19,6 @@ export const registerIntent = async (userId, data) => {
     throw error;
   }
 
-  // --- NEW: Organ Medical Document Guard ---
   if (category === "Organ" && !documentUrl) {
     const error = new Error("A Medical Clearance document is required to register as an Organ Donor.");
     error.statusCode = 400;
@@ -122,8 +121,7 @@ export const verifyDonorIntent = async (adminId, intentId, data) => {
     });
 
     // Trigger Organ Matching AFTER verification!
-    const { runOrganMatching } = await import("../../matching/organ/organMatchingService.js");
-    runOrganMatching().catch(console.error);
+    runOrganMatching().catch(console.error); // <-- NOW USING THE STATIC IMPORT
   } else {
     await prisma.donationIntent.update({
       where: { id: intentId },
@@ -153,4 +151,39 @@ export const cancelIntent = async (userId, intentId) => {
 
 export const getMyIntents = async (userId) => {
   return await prisma.donationIntent.findMany({ where: { userId }, orderBy: { createdAt: "desc" }});
+};
+
+// --- NEW: Admin gets all Intents pending verification ---
+export const getPendingIntents = async (page = 1, limit = 20) => {
+  const skip = (page - 1) * limit;
+
+  const [intents, totalCount] = await Promise.all([
+    prisma.donationIntent.findMany({
+      skip,
+      take: limit,
+      where: { status: "PendingVerification" },
+      include: {
+        user: {
+          select: {
+            id: true,
+            FirstName: true,
+            LastName: true,
+            EmailAddress: true,
+            PhoneNumber: true,
+          },
+        },
+      },
+      orderBy: { createdAt: "asc" }, // Oldest first
+    }),
+    prisma.donationIntent.count({
+      where: { status: "PendingVerification" },
+    }),
+  ]);
+
+  return {
+    intents,
+    totalCount,
+    totalPages: Math.ceil(totalCount / limit),
+    currentPage: page,
+  };
 };

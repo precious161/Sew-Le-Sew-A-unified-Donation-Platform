@@ -1,7 +1,12 @@
 import prisma from "../../../config/db.js";
 
+export const getHealthInfoByUserId = async (userId) => {
+  return await prisma.healthInformation.findUnique({
+    where: { userId },
+  });
+};
+
 export const upsertHealthInfo = async (userId, data) => {
-  // Upsert: Update if it exists, Create if it doesn't.
   return await prisma.healthInformation.upsert({
     where: { userId },
     update: data,

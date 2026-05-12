@@ -1,4 +1,4 @@
-import { registerIntent, cancelIntent, getMyIntents, verifyDonorIntent } from "../../../services/donations/donors/intentService.js";
+import { registerIntent, cancelIntent, getMyIntents, verifyDonorIntent, getPendingIntents } from "../../../services/donations/donors/intentService.js";
 
 export const handleRegisterIntent = async (req, res) => {
   try {
@@ -65,5 +65,25 @@ export const handleGetMyIntents = async (req, res) => {
     return res.status(200).json({ success: true, count: intents.length, data: intents });
   } catch (error) {
     return res.status(500).json({ success: false, message: "Failed to fetch intents." });
+  }
+};
+
+export const handleGetPendingIntents = async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+
+    const result = await getPendingIntents(page, limit);
+
+    return res.status(200).json({
+      success: true,
+      ...result,
+    });
+  } catch (error) {
+    console.error("handleGetPendingIntents Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch pending intents.",
+    });
   }
 };

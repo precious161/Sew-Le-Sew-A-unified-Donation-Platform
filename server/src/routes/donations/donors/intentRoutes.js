@@ -3,7 +3,8 @@ import {
   handleRegisterIntent,
   handleCancelIntent,
   handleGetMyIntents,
-  handleVerifyIntent
+  handleVerifyIntent,
+  handleGetPendingIntents
 } from "../../../controllers/donations/donors/intentController.js";
 import { registerIntentSchema } from "../../../validations/donations/donors/intentSchema.js";
 import { validateRequest } from "../../../middleware/donations/validateRequest.js";
@@ -38,12 +39,21 @@ router.get(
 );
 
 // ── Admin Routes ──
-// NEW: Route for Admins to verify Organ Donor Intents
+
+router.get(
+  "/pending",
+  protect,
+  authorize("Red_Cross_Admin"),
+  handleGetPendingIntents
+);
+
+
 router.patch(
   "/:id/verify",
   protect,
   authorize("Red_Cross_Admin"),
   handleVerifyIntent
 );
+
 
 export default router;
