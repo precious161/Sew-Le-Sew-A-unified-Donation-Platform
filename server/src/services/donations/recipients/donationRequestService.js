@@ -24,14 +24,6 @@ export const createDonationRequest = async (userId, data) => {
     documentUrl,
   } = data;
 
-  // ── Category Guards ──
-  if (donationType === "Organ") {
-    const error = new Error(
-      "Organ donation requests are currently handled through our AI matching system. Please contact the Red Cross directly."
-    );
-    error.statusCode = 400;
-    throw error;
-  }
 
   // 1. Verify Precondition: Does the user have Health Information?
   const healthInfo = await prisma.healthInformation.findUnique({

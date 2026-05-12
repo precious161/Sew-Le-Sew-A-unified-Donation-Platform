@@ -22,6 +22,30 @@ model User {
   identityStatus          IdentityStatus          @default(Unverified)
   identityVerifiedAt      DateTime?
   identityVerifiedBy      String?
+
+  identityRejectionReason String?
+
+
+  createdAt     DateTime @default(now())
+
+  // Relations
+  notification           Notification[]
+  eligibilityLogs        EligibilityLog[]
+  eligibilityStatuses    UserEligibilityStatus[]
+  donationIntents        DonationIntent[]
+  healthInfo             HealthInformation?
+  requests               DonationRequest[]
+  confirmedMatches       Match[]                 @relation("MatchConfirmer")
+  financialContributions FinancialContribution[]
+  allocatedContributions FinancialContribution[] @relation("FinancialAllocator")
+  verifiedRequests       DonationRequest[]       @relation("RequestVerifier")
+  verifiedContributions  FinancialContribution[] @relation("FinancialVerifier")
+
+  verifiedIdentities     User[]                  @relation("IdentityVerifier")
+  identityVerifierAdmin  User?                   @relation("IdentityVerifier", fields: [identityVerifiedBy], references: [id])
+
+  // NEW: Relation for tracking which admin verified an Organ Donor Intent
+  verifiedIntents        DonationIntent[]        @relation("IntentVerifier")
   donationIntents         DonationIntent[]
   requests                DonationRequest[]
   verifiedRequests        DonationRequest[]       @relation("RequestVerifier")
@@ -35,6 +59,7 @@ model User {
   identityVerifierAdmin   User?                   @relation("IdentityVerifier", fields: [identityVerifiedBy], references: [id])
   verifiedIdentities      User[]                  @relation("IdentityVerifier")
   eligibilityStatuses     UserEligibilityStatus[]
+
 }
 
 model BlacklistedToken {
@@ -88,6 +113,17 @@ model UserEligibilityStatus {
   @@id([userId, category])
 }
 
+
+// NEW: Added PendingVerification to the Intent Status
+enum IntentStatus {
+  PendingVerification
+  Active
+  Matched
+  Completed
+  Cancelled
+}
+
+
 model DonationIntent {
   id          String       @id @default(uuid())
   userId      String
@@ -95,12 +131,48 @@ model DonationIntent {
   location    String       @default("Red Cross Center, Addis Ababa")
   plannedDate DateTime
   status      IntentStatus @default(Active)
+
+
+  // In-Kind & Organ specific fields
+  itemType    String?
+  quantity    Int?
+
+  // --- NEW: MEDICAL DOCUMENT VERIFICATION FIELDS ---
+  documentUrl     String?
+  verifiedBy      String?
+  verifiedAt      DateTime?
+  rejectionReason String?
+  // -------------------------------------------------
+
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  // Relations
+  user            User    @relation(fields: [userId], references: [id])
+  verifiedByUser  User?   @relation("IntentVerifier", fields: [verifiedBy], references: [id]) // NEW
+  matches         Match[]
+}
+
+enum UrgencyLevel {
+  Low
+  Medium
+  High
+  Critical
+}
+
+enum RequestStatus {
+  PendingVerification
+  Pending
+  Matching
+  Fulfilled
+  Cancelled
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
   itemType    String?
   quantity    Int?
   user        User         @relation(fields: [userId], references: [id])
   matches     Match[]
+
 }
 
 model HealthInformation {

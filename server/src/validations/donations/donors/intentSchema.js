@@ -3,9 +3,9 @@ import { z } from "zod";
 
 export const registerIntentSchema = z.object({
   body: z.object({
-    category: z.enum(["Blood", "In_Kind"], {
+    category: z.enum(["Blood", "In_Kind","Organ"], {
       errorMap: () => ({
-        message: "Donation category must be Blood or In_Kind. Organ and Financial are handled separately.",
+        message: "Donation category must be Blood, In_Kind, Organ.",
       }),
     }),
 
