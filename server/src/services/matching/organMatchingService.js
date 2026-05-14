@@ -34,7 +34,14 @@ export const runOrganMatching = async () => {
       include: { user: { include: { healthInfo: true } } },
     });
 
-    if (activeIntents.length === 0 || pendingRequests.length === 0) return;
+ console.log(`\n PRISMA FOUND:`);
+    console.log(`-> ${activeIntents.length} Active Organ Donors`);
+    console.log(`-> ${pendingRequests.length} Pending Organ Requests`);
+
+   if (activeIntents.length === 0 || pendingRequests.length === 0) {
+       console.log(" Quitting early because one of the arrays is empty!");
+       return;
+    }
 
     // 2. Score Recipients (Urgency + Wait Time)
     const today = new Date();
@@ -61,30 +68,52 @@ export const runOrganMatching = async () => {
       const compatibleIntents = activeIntents.filter(intent => {
         if (usedIntentIds.has(intent.id)) return false;
 
+console.log(`\n--- EVALUATING DONOR: ${intent.user.FirstName} ---`);
+
         // TIER 1: Organ Type
-        const offeredOrgan = intent.itemType?.toLowerCase().trim();
-        if (offeredOrgan !== requiredOrgan) return false;
+         const offeredOrgan = intent.itemType?.toLowerCase().trim();
+        if (offeredOrgan !== requiredOrgan) {
+          console.log(`FAILED TIER 1: Donor offered '${offeredOrgan}', Recipient needs '${requiredOrgan}'`);
+          return false;
+        }
+
+           console.log(`PASSED TIER 1: Organ Match`);
 
         // TIER 2: Blood Type Matrix
-        const donorBloodType = intent.user.bloodType;
-        if (!donorBloodType || !BLOOD_COMPATIBILITY[donorBloodType]?.includes(requiredBloodType)) return false;
+         const donorBloodType = intent.user.bloodType;
+        if (!donorBloodType || !BLOOD_COMPATIBILITY[donorBloodType]?.includes(requiredBloodType)) {
+          console.log(` FAILED TIER 2: Donor Blood '${donorBloodType}' incompatible with Recipient Blood '${requiredBloodType}'`);
+          return false;
+        }
+        console.log(` PASSED TIER 2: Blood Matrix`);
 
         // TIER 3: Geography (Ischemia Time)
-        const donorLocation = intent.location.toLowerCase();
+       const donorLocation = intent.location?.toLowerCase() || "";
         const recipientLocation = request.hospitalName?.toLowerCase() || "";
         const isSameRegion = donorLocation.includes("addis") && recipientLocation.includes("addis");
 
-        if ((requiredOrgan === 'heart' || requiredOrgan === 'lung') && !isSameRegion) return false;
+        if ((requiredOrgan === 'heart' || requiredOrgan === 'lung') && !isSameRegion) {
+          console.log(`FAILED TIER 3: Geography. Donor is at '${donorLocation}', Recipient at '${recipientLocation}'`);
+          return false;
+        }
+        console.log(`PASSED TIER 3: Geography / Time`);
 
         // TIER 4: Biometric Fit
-        if (organRules.requireSizeMatch && recipientWeight) {
+       if (organRules.requireSizeMatch && recipientWeight) {
           const donorWeight = intent.user.healthInfo?.weight;
-          if (!donorWeight) return false;
+          if (!donorWeight) {
+            console.log(`FAILED TIER 4: Donor weight is missing from DB!`);
+            return false;
+          }
 
           const weightDifference = Math.abs(donorWeight - recipientWeight);
           const percentageDifference = (weightDifference / recipientWeight) * 100;
-          if (percentageDifference > organRules.maxVariance) return false;
+          if (percentageDifference > organRules.maxVariance) {
+            console.log(`FAILED TIER 4: Size Variance too high. Diff is ${percentageDifference.toFixed(1)}% (Max is ${organRules.maxVariance}%)`);
+            return false;
+          }
         }
+        console.log(` PASSED TIER 4: Biometric Fit`);
 
         return true;
       });

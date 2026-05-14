@@ -102,6 +102,38 @@ export const processEligibility = async (userId, category, userAnswers) => {
       },
     });
 
+    if (isEligible) {
+      // Look for keys like 'MIN_WEIGHT' or 'weight' from the frontend answers
+      const submittedWeight = userAnswers["MIN_WEIGHT"] || userAnswers["weight"];
+      const submittedBloodType = userAnswers["BLOOD_TYPE"] || userAnswers["bloodType"];
+      const submittedHeight = userAnswers["height"] || 165; // Default average height if not asked
+
+      // Also update the User's main bloodType field
+      if (submittedBloodType) {
+        await tx.user.update({
+          where: { id: userId },
+          data: { bloodType: submittedBloodType }
+        });
+      }
+
+      // Upsert the HealthInformation profile silently in the background
+      if (submittedWeight || submittedBloodType) {
+        await tx.healthInformation.upsert({
+          where: { userId },
+          update: {
+            weight: submittedWeight ? parseFloat(submittedWeight) : undefined,
+            bloodType: submittedBloodType || undefined,
+          },
+          create: {
+            userId,
+            weight: submittedWeight ? parseFloat(submittedWeight) : 60, // Fallback safe weight
+            height: parseFloat(submittedHeight),
+            bloodType: submittedBloodType || "Unknown",
+          }
+        });
+      }
+    }
+
     return { isEligible, reasonCode, ineligibleUntil, status };
   });
 };

@@ -1,4 +1,3 @@
-
 import { z } from "zod";
 
 export const donationRequestSchema = z.object({
@@ -19,6 +18,9 @@ export const donationRequestSchema = z.object({
     // In-Kind specific
     itemType: z.string().min(2, "Item type must be at least 2 characters").optional(),
     itemQuantity: z.number().int().min(1, "Item quantity must be at least 1").optional(),
+
+    // Organ specific <--- THIS IS WHAT WAS MISSING!
+    organType: z.string().min(2, "Organ type must be at least 2 characters").optional(),
 
     // General fields
     quantity: z.number().int().min(1, "Quantity must be at least 1").default(1),
@@ -48,6 +50,15 @@ export const donationRequestSchema = z.object({
   }, {
     message: "Item type must be provided for In-Kind donation requests.",
     path: ["itemType"],
+  })
+
+  // Organ Validation
+  .refine((data) => {
+    if (data.donationType === "Organ" && !data.organType) return false;
+    return true;
+  }, {
+    message: "Organ type must be provided for Organ donation requests.",
+    path: ["organType"],
   })
 
   .refine((data) => {
