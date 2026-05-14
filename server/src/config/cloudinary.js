@@ -1,17 +1,22 @@
-
+// cloudinary.js
 import { v2 as cloudinary } from "cloudinary";
 import { CloudinaryStorage } from "multer-storage-cloudinary";
 import multer from "multer";
 import { config } from "./env.js";
 
-// Configure cloudinary
+// Validate config exists
+if (!config.cloudinaryCloudName || !config.cloudinaryApiKey || !config.cloudinaryApiSecret) {
+  throw new Error(
+    "Cloudinary configuration is missing. Please check your .env file for CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET."
+  );
+}
+
 cloudinary.config({
   cloud_name: config.cloudinaryCloudName,
   api_key: config.cloudinaryApiKey,
   api_secret: config.cloudinaryApiSecret,
 });
 
-// Configure storage
 const storage = new CloudinaryStorage({
   cloudinary,
   params: {
@@ -21,7 +26,6 @@ const storage = new CloudinaryStorage({
   },
 });
 
-// Configure multer
 export const upload = multer({
   storage,
   limits: {
@@ -38,7 +42,10 @@ export const upload = multer({
     if (allowedMimes.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error("Invalid file type. Only PDF, JPG, and PNG are allowed."), false);
+      cb(
+        new Error("Invalid file type. Only PDF, JPG, and PNG are allowed."),
+        false
+      );
     }
   },
 });

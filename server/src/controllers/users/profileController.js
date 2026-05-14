@@ -1,3 +1,4 @@
+// profileController.js
 import { StatusCodes } from "http-status-codes";
 import prisma from "../../config/db.js";
 
@@ -13,18 +14,29 @@ export const viewProfile = async (req, res) => {
         PhoneNumber: true,
         Role: true,
         status: true,
-        bloodType:true,
+        bloodType: true,
+        identityStatus: true,
+        identityDocumentUrl: true,
+        createdAt: true,
       },
     });
 
+    if (!user) {
+      return res.status(StatusCodes.NOT_FOUND).json({
+        success: false,
+        message: "User not found.",
+      });
+    }
+
     return res.status(StatusCodes.OK).json({
       success: true,
-      data: user
+      data: user,
     });
   } catch (error) {
+    console.error("viewProfile Error:", error);
     return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
       success: false,
-      message: "Error fetching profile"
+      message: "Error fetching profile",
     });
   }
 };
@@ -42,20 +54,22 @@ export const updateProfile = async (req, res) => {
       } else if (Role === "Red_Cross_Admin") {
         return res.status(StatusCodes.FORBIDDEN).json({
           success: false,
-          message: "You cannot promote yourself to Admin. Contact an administrator."
+          message: "You cannot promote yourself to Admin. Contact an administrator.",
         });
       }
     }
 
+
+    const updateData = {};
+    if (FirstName !== undefined) updateData.FirstName = FirstName;
+    if (LastName !== undefined) updateData.LastName = LastName;
+    if (PhoneNumber !== undefined) updateData.PhoneNumber = PhoneNumber;
+    if (bloodType !== undefined) updateData.bloodType = bloodType;
+    updateData.Role = updatedRole;
+
     const updatedUser = await prisma.user.update({
       where: { id: req.user.id },
-      data: {
-        FirstName,
-        LastName,
-        PhoneNumber,
-        Role: updatedRole,
-        bloodType,
-      },
+      data: updateData,
       select: {
         id: true,
         FirstName: true,
@@ -63,38 +77,47 @@ export const updateProfile = async (req, res) => {
         EmailAddress: true,
         PhoneNumber: true,
         Role: true,
-        bloodType:true
-      }
+        bloodType: true,
+        identityStatus: true,
+      },
     });
 
     return res.status(StatusCodes.OK).json({
       success: true,
       message: "Profile updated successfully",
-      data: updatedUser
+      data: updatedUser,
     });
   } catch (error) {
+    console.error("updateProfile Error:", error);
     return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
       success: false,
-      message: "Update failed"
+      message: "Update failed",
     });
   }
 };
-
 
 export const uploadIdentityDocument = async (req, res) => {
   try {
     const userId = req.user.id;
 
-    // Check if file exists (multer puts the uploaded file details in req.file)
     if (!req.file || !req.file.path) {
       return res.status(StatusCodes.BAD_REQUEST).json({
         success: false,
-        message: "Please upload a valid image or PDF of your National ID/Passport.",
+        message: "Please upload a valid image or PDF of your National ID or Passport.",
       });
     }
 
-    // Check current identity verification status
-    const user = await prisma.user.findUnique({ where: { id: userId } });
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      return res.status(StatusCodes.NOT_FOUND).json({
+        success: false,
+        message: "User not found.",
+      });
+    }
+
     if (user.identityStatus === "Verified") {
       return res.status(StatusCodes.BAD_REQUEST).json({
         success: false,
@@ -102,32 +125,37 @@ export const uploadIdentityDocument = async (req, res) => {
       });
     }
 
-    // Update status to 'Pending' and save the Cloudinary URL
+    if (user.identityStatus === "Pending") {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        success: false,
+        message: "Your identity document is already under review. Please wait for admin verification.",
+      });
+    }
+
     const updatedUser = await prisma.user.update({
       where: { id: userId },
       data: {
         identityDocumentUrl: req.file.path,
         identityStatus: "Pending",
-        identityRejectionReason: null, // Reset previous rejections if any
+        identityRejectionReason: null,
       },
       select: {
         id: true,
         identityStatus: true,
         identityDocumentUrl: true,
-      }
+      },
     });
 
-    // Notify user
     await prisma.notification.create({
       data: {
         userId,
-        message: "Your Identity Document has been uploaded and is pending review by the Red Cross.",
+        message: "Your Identity Document has been uploaded and is pending review by the Red Cross. You will be notified once verified.",
       },
     });
 
     return res.status(StatusCodes.OK).json({
       success: true,
-      message: "Identity document uploaded. Your verification status is now Pending.",
+      message: "Identity document uploaded successfully. Your verification is now pending.",
       data: updatedUser,
     });
   } catch (error) {

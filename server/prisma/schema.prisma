@@ -6,253 +6,9 @@ datasource db {
   provider = "postgresql"
 }
 
-model User {
-  id                      String                  @id @default(uuid())
-  FirstName               String
-  LastName                String
-  EmailAddress            String                  @unique
-  Password                String
-  PhoneNumber             String?
-  Role                    Role                    @default(Donor)
-  status                  Status                  @default(Active)
-  createdAt               DateTime                @default(now())
-  bloodType               String?
-  identityDocumentUrl     String?
-  identityRejectionReason String?
-  identityStatus          IdentityStatus          @default(Unverified)
-  identityVerifiedAt      DateTime?
-  identityVerifiedBy      String?
-
-  identityRejectionReason String?
-
-
-  createdAt     DateTime @default(now())
-
-  // Relations
-  notification           Notification[]
-  eligibilityLogs        EligibilityLog[]
-  eligibilityStatuses    UserEligibilityStatus[]
-  donationIntents        DonationIntent[]
-  healthInfo             HealthInformation?
-  requests               DonationRequest[]
-  confirmedMatches       Match[]                 @relation("MatchConfirmer")
-  financialContributions FinancialContribution[]
-  allocatedContributions FinancialContribution[] @relation("FinancialAllocator")
-  verifiedRequests       DonationRequest[]       @relation("RequestVerifier")
-  verifiedContributions  FinancialContribution[] @relation("FinancialVerifier")
-
-  verifiedIdentities     User[]                  @relation("IdentityVerifier")
-  identityVerifierAdmin  User?                   @relation("IdentityVerifier", fields: [identityVerifiedBy], references: [id])
-
-  // NEW: Relation for tracking which admin verified an Organ Donor Intent
-  verifiedIntents        DonationIntent[]        @relation("IntentVerifier")
-  donationIntents         DonationIntent[]
-  requests                DonationRequest[]
-  verifiedRequests        DonationRequest[]       @relation("RequestVerifier")
-  eligibilityLogs         EligibilityLog[]
-  allocatedContributions  FinancialContribution[] @relation("FinancialAllocator")
-  financialContributions  FinancialContribution[]
-  verifiedContributions   FinancialContribution[] @relation("FinancialVerifier")
-  healthInfo              HealthInformation?
-  confirmedMatches        Match[]                 @relation("MatchConfirmer")
-  notification            Notification[]
-  identityVerifierAdmin   User?                   @relation("IdentityVerifier", fields: [identityVerifiedBy], references: [id])
-  verifiedIdentities      User[]                  @relation("IdentityVerifier")
-  eligibilityStatuses     UserEligibilityStatus[]
-
-}
-
-model BlacklistedToken {
-  id        String   @id @default(uuid())
-  token     String   @unique
-  createdAt DateTime @default(now())
-  expiresAt DateTime
-}
-
-model Notification {
-  id        String   @id @default(uuid())
-  userId    String
-  message   String
-  isRead    Boolean  @default(false)
-  createdAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id])
-}
-
-model MedicalStandard {
-  id          String       @id @default(uuid())
-  category    Category
-  ruleKey     String
-  dataType    RuleDataType
-  value       String
-  description String?
-  updatedAt   DateTime     @updatedAt
-
-  @@unique([category, ruleKey])
-}
-
-model EligibilityLog {
-  id         String   @id @default(uuid())
-  userId     String
-  category   Category
-  answers    Json
-  isEligible Boolean
-  reasonCode String?
-  createdAt  DateTime @default(now())
-  user       User     @relation(fields: [userId], references: [id])
-}
-
-model UserEligibilityStatus {
-  userId          String
-  category        Category
-  status          EligibilityStatus @default(Ineligible)
-  ineligibleUntil DateTime?
-  lastCheckedAt   DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
-  user            User              @relation(fields: [userId], references: [id])
-
-  @@id([userId, category])
-}
-
-
-// NEW: Added PendingVerification to the Intent Status
-enum IntentStatus {
-  PendingVerification
-  Active
-  Matched
-  Completed
-  Cancelled
-}
-
-
-model DonationIntent {
-  id          String       @id @default(uuid())
-  userId      String
-  category    Category
-  location    String       @default("Red Cross Center, Addis Ababa")
-  plannedDate DateTime
-  status      IntentStatus @default(Active)
-
-
-  // In-Kind & Organ specific fields
-  itemType    String?
-  quantity    Int?
-
-  // --- NEW: MEDICAL DOCUMENT VERIFICATION FIELDS ---
-  documentUrl     String?
-  verifiedBy      String?
-  verifiedAt      DateTime?
-  rejectionReason String?
-  // -------------------------------------------------
-
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-
-  // Relations
-  user            User    @relation(fields: [userId], references: [id])
-  verifiedByUser  User?   @relation("IntentVerifier", fields: [verifiedBy], references: [id]) // NEW
-  matches         Match[]
-}
-
-enum UrgencyLevel {
-  Low
-  Medium
-  High
-  Critical
-}
-
-enum RequestStatus {
-  PendingVerification
-  Pending
-  Matching
-  Fulfilled
-  Cancelled
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-  itemType    String?
-  quantity    Int?
-  user        User         @relation(fields: [userId], references: [id])
-  matches     Match[]
-
-}
-
-model HealthInformation {
-  id                String   @id @default(uuid())
-  userId            String   @unique
-  bloodType         String
-  weight            Float
-  height            Float
-  medicalConditions String?
-  allergies         String?
-  notes             String?
-  lastUpdated       DateTime @updatedAt
-  user              User     @relation(fields: [userId], references: [id])
-}
-
-model DonationRequest {
-  id                String        @id @default(uuid())
-  recipientId       String
-  donationType      Category
-  requiredBloodType String?
-  organType         String?
-  quantity          Int           @default(1)
-  urgencyLevel      UrgencyLevel  @default(Medium)
-  status            RequestStatus @default(PendingVerification)
-  notes             String?
-  requestDate       DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
-  itemQuantity      Int?
-  itemType          String?
-  attendingDoctor   String?
-  documentUrl       String?
-  hospitalName      String?
-  originalUrgency   UrgencyLevel?
-  rejectionReason   String?
-  verifiedAt        DateTime?
-  verifiedBy        String?
-  user              User          @relation(fields: [recipientId], references: [id])
-  verifiedByUser    User?         @relation("RequestVerifier", fields: [verifiedBy], references: [id])
-  matches           Match[]
-}
-
-model Match {
-  id              String          @id @default(uuid())
-  intentId        String
-  requestId       String
-  confirmedBy     String?
-  status          MatchStatus     @default(Pending)
-  notifiedAt      DateTime?
-  acceptedAt      DateTime?
-  declinedAt      DateTime?
-  completedAt     DateTime?
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
-  confirmedByUser User?           @relation("MatchConfirmer", fields: [confirmedBy], references: [id])
-  intent          DonationIntent  @relation(fields: [intentId], references: [id])
-  request         DonationRequest @relation(fields: [requestId], references: [id])
-
-  @@unique([requestId, status])
-}
-
-model FinancialContribution {
-  id              String          @id @default(uuid())
-  donorId         String
-  amount          Float
-  currency        String          @default("ETB")
-  purpose         String?
-  status          FinancialStatus @default(Pending)
-  allocatedBy     String?
-  allocatedAt     DateTime?
-  allocationNote  String?
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
-  documentUrl     String?
-  rejectionReason String?
-  verifiedAt      DateTime?
-  verifiedBy      String?
-  allocatedByUser User?           @relation("FinancialAllocator", fields: [allocatedBy], references: [id])
-  donor           User            @relation(fields: [donorId], references: [id])
-  verifiedByUser  User?           @relation("FinancialVerifier", fields: [verifiedBy], references: [id])
-}
+// ─────────────────────────────────────────
+// Enums
+// ─────────────────────────────────────────
 
 enum Role {
   Red_Cross_Admin
@@ -292,6 +48,7 @@ enum EligibilityStatus {
 }
 
 enum IntentStatus {
+  PendingVerification
   Active
   Matched
   Completed
@@ -306,11 +63,11 @@ enum UrgencyLevel {
 }
 
 enum RequestStatus {
+  PendingVerification
   Pending
   Matching
   Fulfilled
   Cancelled
-  PendingVerification
 }
 
 enum MatchStatus {
@@ -327,4 +84,237 @@ enum FinancialStatus {
   Verified
   Allocated
   Failed
+}
+
+// ─────────────────────────────────────────
+// User Management Subsystem
+// ─────────────────────────────────────────
+
+model User {
+  id            String         @id @default(uuid())
+  FirstName     String
+  LastName      String
+  EmailAddress  String         @unique
+  Password      String
+  PhoneNumber   String?
+  Role          Role           @default(Donor)
+  status        Status         @default(Active)
+  bloodType     String?
+  createdAt     DateTime       @default(now())
+
+  // Identity verification fields
+  identityDocumentUrl     String?
+  identityStatus          IdentityStatus @default(Unverified)
+  identityVerifiedAt      DateTime?
+  identityVerifiedBy      String?
+  identityRejectionReason String?
+
+  // Relations
+  notification           Notification[]
+  eligibilityLogs        EligibilityLog[]
+  eligibilityStatuses    UserEligibilityStatus[]
+  donationIntents        DonationIntent[]
+  healthInfo             HealthInformation?
+  requests               DonationRequest[]
+  confirmedMatches       Match[]                 @relation("MatchConfirmer")
+  financialContributions FinancialContribution[]
+  allocatedContributions FinancialContribution[] @relation("FinancialAllocator")
+  verifiedContributions  FinancialContribution[] @relation("FinancialVerifier")
+  verifiedRequests       DonationRequest[]       @relation("RequestVerifier")
+  verifiedIntents        DonationIntent[]        @relation("IntentVerifier")
+  verifiedIdentities     User[]                  @relation("IdentityVerifier")
+  identityVerifierAdmin  User?                   @relation("IdentityVerifier", fields: [identityVerifiedBy], references: [id])
+}
+
+model BlacklistedToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  message   String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  // Relations
+  user User @relation(fields: [userId], references: [id])
+}
+
+// ─────────────────────────────────────────
+// Donation Management Subsystem
+// ─────────────────────────────────────────
+
+model MedicalStandard {
+  id          String       @id @default(uuid())
+  category    Category
+  ruleKey     String
+  dataType    RuleDataType
+  value       String
+  description String?
+  updatedAt   DateTime     @updatedAt
+
+  @@unique([category, ruleKey])
+}
+
+model EligibilityLog {
+  id         String   @id @default(uuid())
+  userId     String
+  category   Category
+  answers    Json
+  isEligible Boolean
+  reasonCode String?
+  createdAt  DateTime @default(now())
+
+  // Relations
+  user User @relation(fields: [userId], references: [id])
+}
+
+model UserEligibilityStatus {
+  userId          String
+  category        Category
+  status          EligibilityStatus @default(Ineligible)
+  ineligibleUntil DateTime?
+  lastCheckedAt   DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  // Relations
+  user User @relation(fields: [userId], references: [id])
+
+  @@id([userId, category])
+}
+
+model DonationIntent {
+  id          String       @id @default(uuid())
+  userId      String
+  category    Category
+  location    String       @default("Red Cross Center, Addis Ababa")
+  plannedDate DateTime
+  status      IntentStatus @default(Active)
+
+  // In-Kind specific fields
+  itemType    String?
+  quantity    Int?
+
+  // Verification fields
+  documentUrl     String?
+  verifiedBy      String?
+  verifiedAt      DateTime?
+  rejectionReason String?
+
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  // Relations
+  user           User    @relation(fields: [userId], references: [id])
+  verifiedByUser User?   @relation("IntentVerifier", fields: [verifiedBy], references: [id])
+  matches        Match[]
+}
+
+model HealthInformation {
+  id                String   @id @default(uuid())
+  userId            String   @unique
+  bloodType         String
+  weight            Float
+  height            Float
+  medicalConditions String?
+  allergies         String?
+  notes             String?
+  lastUpdated       DateTime @updatedAt
+
+  // Relations
+  user User @relation(fields: [userId], references: [id])
+}
+
+model DonationRequest {
+  id                String        @id @default(uuid())
+  recipientId       String
+  donationType      Category
+  requiredBloodType String?
+  organType         String?
+  quantity          Int           @default(1)
+  urgencyLevel      UrgencyLevel  @default(Medium)
+  status            RequestStatus @default(PendingVerification)
+  notes             String?
+
+  // In-Kind specific fields
+  itemType          String?
+  itemQuantity      Int?
+
+  // Verification fields
+  hospitalName      String?
+  attendingDoctor   String?
+  documentUrl       String?
+  verifiedBy        String?
+  verifiedAt        DateTime?
+  rejectionReason   String?
+  originalUrgency   UrgencyLevel?
+
+  requestDate       DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  // Relations
+  user           User          @relation(fields: [recipientId], references: [id])
+  verifiedByUser User?         @relation("RequestVerifier", fields: [verifiedBy], references: [id])
+  matches        Match[]
+}
+
+// ─────────────────────────────────────────
+// Matching Subsystem
+// ─────────────────────────────────────────
+
+model Match {
+  id          String      @id @default(uuid())
+  intentId    String
+  requestId   String
+  confirmedBy String?
+  status      MatchStatus @default(Pending)
+
+  // Stage timestamps
+  notifiedAt  DateTime?
+  acceptedAt  DateTime?
+  declinedAt  DateTime?
+  completedAt DateTime?
+
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  // Relations
+  intent          DonationIntent  @relation(fields: [intentId], references: [id])
+  request         DonationRequest @relation(fields: [requestId], references: [id])
+  confirmedByUser User?           @relation("MatchConfirmer", fields: [confirmedBy], references: [id])
+
+  @@unique([requestId, status])
+}
+
+
+model FinancialContribution {
+  id             String          @id @default(uuid())
+  donorId        String
+  amount         Float
+  currency       String          @default("ETB")
+  purpose        String?
+  status         FinancialStatus @default(Pending)
+
+  // Verification fields
+  documentUrl     String?
+  verifiedBy      String?
+  verifiedAt      DateTime?
+  rejectionReason String?
+
+  // Allocation fields
+  allocatedBy    String?
+  allocatedAt    DateTime?
+  allocationNote String?
+
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  // Relations
+  donor           User  @relation(fields: [donorId], references: [id])
+  verifiedByUser  User? @relation("FinancialVerifier", fields: [verifiedBy], references: [id])
+  allocatedByUser User? @relation("FinancialAllocator", fields: [allocatedBy], references: [id])
 }
