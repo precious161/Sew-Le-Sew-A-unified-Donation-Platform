@@ -22,11 +22,12 @@ export const registerIntentSchema = z.object({
   })
 
   // In-Kind validation
+
   .refine((data) => {
-    if (data.category === "In_Kind" && !data.itemType) return false;
+    if ((data.category === "In_Kind" || data.category === "Organ") && !data.itemType) return false;
     return true;
   }, {
-    message: "itemType is required for In-Kind donations.",
+    message: "itemType is required for In-Kind and Organ donations.",
     path: ["itemType"],
   })
 
