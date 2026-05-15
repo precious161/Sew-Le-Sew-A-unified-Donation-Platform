@@ -10,22 +10,27 @@ const AdminDonors = () => {
   const [donors, setDonors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isDarkMode, setIsDarkMode] = useState(false);
-  const [filterType, setFilterType] = useState('ALL'); 
+  const [filterType, setFilterType] = useState('ALL');
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
   const [confirmModal, setConfirmModal] = useState({ isOpen: false, userId: null, name: '', newStatus: '' });
   const [broadcastModal, setBroadcastModal] = useState({ isOpen: false, message: '' });
 
-  const fetchDonors = async () => {
-    try {
-      const res = await AdminService.monitorActivity();
-      if (res.success) {
-        const onlyDonors = res.data.filter(u => u.Role === 'Donor');
-        setDonors(onlyDonors);
-      }
-    } catch { console.error("Sync failed"); }
-    finally { setLoading(false); }
-  };
 
+
+const fetchDonors = async () => {
+  try {
+    // Fetch enough users — use totalCount for accurate filtering
+    const res = await AdminService.monitorActivity(1, 100);
+    if (res.success) {
+      const onlyDonors = res.data.filter(u => u.Role === 'Donor');
+      setDonors(onlyDonors);
+    }
+  } catch {
+    console.error("Sync failed");
+  } finally {
+    setLoading(false);
+  }
+};
   useEffect(() => { fetchDonors(); }, []);
 
   const showToast = (message, type = 'success') => {
@@ -37,7 +42,7 @@ const AdminDonors = () => {
     if (filterType === 'ALL') return true;
     if (filterType === 'Active') return d.status === 'Active';
     if (filterType === 'Inactive') return d.status === 'Deactivated';
-    return true; 
+    return true;
   });
 
   const executeBroadcast = async () => {
@@ -75,7 +80,7 @@ const AdminDonors = () => {
 
   return (
     <div className={`flex min-h-screen transition-all ${isDarkMode ? 'bg-[#0f172a]' : 'bg-[#F8F9FA]'}`}>
-      
+
       {toast.show && (
         <div className="fixed top-10 left-1/2 -translate-x-1/2 z-[200] animate-in slide-in-from-top-full duration-300">
            <div className={`px-8 py-4 rounded-3xl shadow-2xl flex items-center gap-4 ${toast.type === 'success' ? 'bg-green-500 text-white' : 'bg-medical-red text-white'}`}>
@@ -88,7 +93,7 @@ const AdminDonors = () => {
 
       <main className="flex-1 ml-72 p-10 relative overflow-y-auto h-screen custom-scrollbar text-left">
         <header className="flex justify-between items-center mb-10">
-          
+
           <div className="flex items-center gap-4">
             <button onClick={() => setBroadcastModal({isOpen: true, message: ''})} className="bg-medical-red text-white px-8 py-3.5 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center gap-3 shadow-lg hover:bg-red-700 transition-all"><Radio size={16}/> Group Broadcast</button>
             <button onClick={() => setIsDarkMode(!isDarkMode)} className={`p-3.5 rounded-2xl shadow-lg transition-all ${isDarkMode ? 'bg-yellow-400 text-black' : 'bg-[#111C44] text-white'}`}>{isDarkMode ? <Sun size={20} /> : <Moon size={20} />}</button>
@@ -121,10 +126,10 @@ const AdminDonors = () => {
                 <div className="flex items-center gap-2 mt-2 opacity-40"><Mail size={12} /><span className="text-[11px] font-bold tracking-tight lowercase">{u.EmailAddress}</span></div>
               </div>
               <div className="flex items-center justify-between pt-6 border-t border-gray-50 mt-auto">
-                
+
                 {/* RESTORED: Role Dropdown */}
-                <select 
-                  value={u.Role} 
+                <select
+                  value={u.Role}
                   onChange={(e) => handleRoleUpdate(u.id, e.target.value)}
                   className={`bg-transparent text-[10px] font-black uppercase cursor-pointer outline-none border-none ${isDarkMode ? 'text-white/60' : 'text-gray-400'}`}
                 >
@@ -133,6 +138,16 @@ const AdminDonors = () => {
                 </select>
 
                 <div className={`text-[8px] font-black px-4 py-1.5 rounded-full uppercase ${u.status === 'Active' ? 'text-green-500 bg-green-500/10' : 'text-medical-red bg-red-500/10'}`}>{u.status}</div>
+
+<div className={`text-[8px] font-black px-3 py-1 rounded-full uppercase ${
+  u.identityStatus === 'Verified'
+    ? 'text-green-500 bg-green-500/10'
+    : u.identityStatus === 'Pending'
+    ? 'text-yellow-500 bg-yellow-500/10'
+    : 'text-gray-400 bg-gray-400/10'
+}`}>
+  ID: {u.identityStatus || 'Unverified'}
+</div>
               </div>
             </div>
           ))}
