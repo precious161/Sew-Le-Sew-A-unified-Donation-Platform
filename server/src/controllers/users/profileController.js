@@ -118,26 +118,24 @@ export const uploadIdentityDocument = async (req, res) => {
       });
     }
 
-    if (user.identityStatus === "Verified") {
-      return res.status(StatusCodes.BAD_REQUEST).json({
-        success: false,
-        message: "Your identity is already verified.",
-      });
-    }
-
+    // Only block if currently under review
     if (user.identityStatus === "Pending") {
       return res.status(StatusCodes.BAD_REQUEST).json({
         success: false,
-        message: "Your identity document is already under review. Please wait for admin verification.",
+        message: "Your identity document is currently under review. Please wait for admin verification before re-uploading.",
       });
     }
 
+    // Allow upload for Unverified, Verified, and Rejected
     const updatedUser = await prisma.user.update({
       where: { id: userId },
       data: {
         identityDocumentUrl: req.file.path,
         identityStatus: "Pending",
         identityRejectionReason: null,
+        // Reset verification data on re-upload
+        identityVerifiedAt: null,
+        identityVerifiedBy: null,
       },
       select: {
         id: true,
@@ -149,7 +147,11 @@ export const uploadIdentityDocument = async (req, res) => {
     await prisma.notification.create({
       data: {
         userId,
-        message: "Your Identity Document has been uploaded and is pending review by the Red Cross. You will be notified once verified.",
+        message: user.identityStatus === "Verified"
+          ? "Your updated Identity Document has been uploaded and is pending re-verification by the Red Cross."
+          : user.identityStatus === "Rejected"
+          ? "Your new Identity Document has been uploaded for re-review. You will be notified once verified."
+          : "Your Identity Document has been uploaded and is pending review by the Red Cross.",
       },
     });
 
