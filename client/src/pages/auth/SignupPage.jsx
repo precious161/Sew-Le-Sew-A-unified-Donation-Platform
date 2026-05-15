@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { Mail, Phone, Lock, User, Heart, Eye, EyeOff, CheckCircle2 } from 'lucide-react'; 
+import { Mail, Phone, Lock, User, Heart, Eye, EyeOff, CheckCircle2 } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
 import AuthService from '../../services/AuthService';
-import bgImage from '../../assets/auth-bg.jpg'; 
+import bgImage from '../../assets/auth-bg.jpg';
 
 const SignupPage = () => {
   const navigate = useNavigate();
@@ -17,30 +17,38 @@ const SignupPage = () => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-    setSuccessMsg('');
-    try {
-      const result = await AuthService.signup(formData);
-      if (result.success) {
-        setSuccessMsg("Account Created Successfully! Redirecting...");
-        setTimeout(() => navigate('/login'), 2500);
-      }
-    } catch (err) {
-      setError(err.response?.data?.message || "Registration Failed");
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  setError('');
+  setSuccessMsg('');
+  try {
+    const result = await AuthService.signup(formData);
+    if (result.success) {
+      setSuccessMsg("Account Created Successfully! Redirecting...");
+      // Token is already stored by AuthService.signup
+      // Navigate based on role
+      setTimeout(() => {
+        const role = result.data?.user?.Role;
+        if (role === 'Red_Cross_Admin') {
+          navigate('/admin', { replace: true });
+        } else {
+          navigate('/dashboard', { replace: true });
+        }
+      }, 1500);
     }
-  };
-
+  } catch (err) {
+    setError(err.response?.data?.message || "Registration Failed");
+  }
+};
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-cover bg-center relative p-6 overflow-hidden" 
+    <div className="min-h-screen w-full flex items-center justify-center bg-cover bg-center relative p-6 overflow-hidden"
          style={{ backgroundImage: `url(${bgImage})` }}>
-      
+
       <div className="absolute inset-0 bg-black/45"></div>
 
       {/* Main Card  */}
       <div className="relative z-10 flex flex-col md:flex-row w-full max-w-5xl bg-white rounded-[40px] shadow-2xl overflow-hidden max-h-[90vh]">
-        
+
         {/* Left Branding */}
         <div className="md:w-5/12 bg-medical-red/80 p-10 flex flex-col justify-between text-white border-r border-white/5">
           <div>
@@ -113,10 +121,10 @@ const SignupPage = () => {
             <div className="relative pb-2">
               <label className="text-[9px] font-black text-gray-500 tracking-widest ml-1">Password</label>
               <div className="absolute top-[38px] left-4 text-gray-400"><Lock size={18}/></div>
-              <input 
+              <input
                 name="Password" type={showPassword ? "text" : "password"} value={formData.Password} onChange={handleChange} required
                 autoComplete="new-password"
-                className="w-full mt-1 p-4 pl-12 pr-12 bg-gray-100 border border-gray-300 rounded-2xl outline-none text-sm font-bold" 
+                className="w-full mt-1 p-4 pl-12 pr-12 bg-gray-100 border border-gray-300 rounded-2xl outline-none text-sm font-bold"
               />
               <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-[38px] text-gray-400 hover:text-medical-red">
                 {showPassword ? <EyeOff size={18}/> : <Eye size={18}/>}

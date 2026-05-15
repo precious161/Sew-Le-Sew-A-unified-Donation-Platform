@@ -18,8 +18,10 @@ import PlatformPage from './pages/PlatformPage';
 
 // Admin Page Imports
 import AdminDashboard from './pages/admin/AdminDashboard';
-import AdminDonors from './pages/admin/AdminDonors';     
-import AdminRecipients from './pages/admin/AdminRecipients'; 
+import AdminDonors from './pages/admin/AdminDonors';
+import AdminRecipients from './pages/admin/AdminRecipients';
+import AdminIdentities from './pages/admin/AdminIdentities';
+
 
 // --- DONATION SUBSYSTEM IMPORTS ---
 import HealthInfo from './pages/donations/recipient/HealthInfo';
@@ -62,7 +64,7 @@ function App() {
             <Route path="/admin" element={<ProtectedRoute allowedRoles={['Red_Cross_Admin']}><AdminDashboard /></ProtectedRoute>} />
             <Route path="/admin/donors" element={<ProtectedRoute allowedRoles={['Red_Cross_Admin']}><AdminDonors /></ProtectedRoute>} />
             <Route path="/admin/recipients" element={<ProtectedRoute allowedRoles={['Red_Cross_Admin']}><AdminRecipients /></ProtectedRoute>} />
-
+            <Route path="/admin/identities" element={<ProtectedRoute allowedRoles={['Red_Cross_Admin']}><AdminIdentities /></ProtectedRoute>} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </BrowserRouter>
