@@ -7,25 +7,26 @@ import { healthInfoSchema } from "../../../validations/donations/recipients/heal
 
 const router = Router();
 
+// ALLOW BOTH DONOR AND RECIPIENT
 router.post(
-  "/health-info",
+  "/",
   protect,
-  authorize("Recipient"),
+  authorize("Recipient", "Donor"),
   validateRequest(healthInfoSchema),
   HealthInfoController.submitHealthInfo
 );
 
 router.get(
-  "/health-info",
+  "/",
   protect,
-  authorize("Recipient"),
+  authorize("Recipient", "Donor"),
   HealthInfoController.getHealthInfo
 );
 
 router.patch(
-  "/health-info",
+  "/",
   protect,
-  authorize("Recipient"),
+  authorize("Recipient", "Donor"),
   validateRequest(healthInfoSchema),
   HealthInfoController.submitHealthInfo
 );
