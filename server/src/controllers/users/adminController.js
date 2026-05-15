@@ -18,6 +18,7 @@ export const monitorActivity = async (req, res) => {
           EmailAddress: true,
           Role: true,
           status: true,
+          identityStatus: true,
         },
         orderBy: { createdAt: "desc" },
       }),
