@@ -1,25 +1,29 @@
 import api from '../api/axios';
 
 const DonationService = {
-    checkEligibility: async (category, answers) => {
-        const response = await api.post('/donations/donor/check', { category, answers });
+    // 1. RECIPIENT: Get existing health info
+    getHealthInfo: async () => {
+        const response = await api.get('/donations/recipient/health-info');
         return response.data;
     },
 
-    getEligibilityHistory: async () => {
-        const response = await api.get('/donations/donor/eligibilityHistory');
+    // 2. RECIPIENT: Save/Update health info
+    submitHealthInfo: async (healthData) => {
+        const response = await api.post('/donations/recipient/health-info', healthData);
         return response.data;
     },
 
-    // NEW: Matches router.post("/register-intent", ...)
-    registerIntent: async (intentData) => {
-        const response = await api.post('/donations/donor/register-intent', intentData);
+    // 3. RECIPIENT: Submit a support request (Doctor note upload)
+    createDonationRequest: async (formData) => {
+        const response = await api.post('/donations/recipient/request', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+        });
         return response.data;
     },
 
-    // NEW: Matches router.get("/my-intents", ...)
-    getMyIntents: async () => {
-        const response = await api.get('/donations/donor/my-intents');
+    // 4. RECIPIENT: Get my active requests
+    getMyRequests: async () => {
+        const response = await api.get('/donations/recipient/requests/me');
         return response.data;
     }
 };

@@ -1,16 +1,22 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   ArrowLeft, Upload, Send, CheckCircle, 
-  AlertTriangle, Droplets, Box, Banknote, Info 
+  AlertTriangle, Droplets, Box, Banknote, Info,
+  Stethoscope, ShieldAlert, FileText, UserCheck, Activity
 } from 'lucide-react';
 import DonationService from '../../../services/DonationService';
+import ProfileService from '../../../services/ProfileService';
 import { useTheme } from '../../../context/ThemeContext';
 
 const CreateRequest = () => {
   const navigate = useNavigate();
-  const { isDarkMode } = useTheme();
+  const { isDarkMode, toggleTheme } = useTheme();
+  
   const [loading, setLoading] = useState(false);
+  const [checkingAuth, setCheckingAuth] = useState(true);
+  const [isVerified, setIsVerified] = useState(false);
+  const [success, setSuccess] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
   
   const [formData, setFormData] = useState({
@@ -20,193 +26,229 @@ const CreateRequest = () => {
     hospitalName: '',
     attendingDoctor: '',
     itemType: '',
-    itemQuantity: '',
+    itemQuantity: 1,
+    organType: '',
     notes: '',
-    document: null // For the file upload
+    document: null 
   });
+
+  // 1. IDENTITY GUARD: Recipients must be verified to make a request
+  useEffect(() => {
+    const checkVerification = async () => {
+      try {
+        const res = await ProfileService.getMe();
+        if (res.success && res.data.identityStatus === 'Verified') {
+          setIsVerified(true);
+        }
+      } catch (err) {
+        console.error("Auth sync error");
+      } finally {
+        setCheckingAuth(false);
+      }
+    };
+    checkVerification();
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!formData.document) {
+      setMessage({ type: 'error', text: 'Medical documentation is mandatory.' });
+      return;
+    }
+
     setLoading(true);
     setMessage({ type: '', text: '' });
 
-    // Feyruza's backend uses Multer + Cloudinary, so we MUST use FormData
     const data = new FormData();
     data.append('donationType', formData.donationType);
     data.append('urgencyLevel', formData.urgencyLevel);
     data.append('hospitalName', formData.hospitalName);
     data.append('attendingDoctor', formData.attendingDoctor);
     data.append('notes', formData.notes);
-    data.append('document', formData.document); // THE FILE
+    data.append('document', formData.document); 
 
-    if (formData.donationType === 'Blood') {
-      data.append('requiredBloodType', formData.requiredBloodType);
-    } else if (formData.donationType === 'In_Kind') {
+    // Category Specific Logic
+    if (formData.donationType === 'Blood') data.append('requiredBloodType', formData.requiredBloodType);
+    if (formData.donationType === 'In_Kind') {
       data.append('itemType', formData.itemType);
       data.append('itemQuantity', formData.itemQuantity);
     }
+    if (formData.donationType === 'Organ') data.append('organType', formData.organType);
 
     try {
       const res = await DonationService.createDonationRequest(data);
-      if (res.success) {
-        setMessage({ type: 'success', text: res.message });
-        setTimeout(() => navigate('/dashboard'), 3000);
-      }
+      if (res.success) setSuccess(true);
     } catch (err) {
-      const errMsg = err.response?.data?.message || 'Failed to submit request.';
-      setMessage({ type: 'error', text: errMsg });
+      const errorMsg = err.response?.data?.message || 'Submission failed. Please check inputs.';
+      setMessage({ type: 'error', text: errorMsg });
     } finally {
       setLoading(false);
     }
   };
 
+  if (checkingAuth) return <div className="h-screen flex items-center justify-center bg-[#0b1121] text-white font-black animate-pulse uppercase tracking-[0.5em]">Authorizing Portal...</div>;
+
+  // --- ACCESS DENIED: IF UNVERIFIED ---
+  if (!isVerified) return (
+    <div className="min-h-screen bg-gray-50 dark:bg-[#0b1121] flex items-center justify-center p-6 transition-all duration-500">
+      <div className="max-w-md w-full bg-white dark:bg-[#111C44] p-12 rounded-[50px] shadow-2xl text-center border border-gray-100 dark:border-white/5 animate-in zoom-in">
+        <div className="w-20 h-20 bg-blue-500/10 text-blue-600 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-sm"><ShieldAlert size={40} /></div>
+        <h2 className="text-3xl font-black text-[#111C44] dark:text-white uppercase italic tracking-tighter leading-none text-left">Identity Required</h2>
+        <p className="text-gray-400 text-sm mt-6 leading-relaxed text-left italic border-l-2 border-blue-500/30 pl-4">
+          Formal support requests require an authenticated identity document. Please go to your profile to upload your National ID.
+        </p>
+        <button onClick={() => navigate('/profile')} className="w-full mt-10 bg-blue-600 text-white py-5 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl hover:bg-blue-700 transition-all flex items-center justify-center gap-2">
+            Verify Identity <ArrowLeft size={16} className="rotate-180" />
+        </button>
+      </div>
+    </div>
+  );
+
+  // --- SUCCESS VIEW ---
+  if (success) return (
+    <div className="min-h-screen bg-gray-50 dark:bg-[#0b1121] flex items-center justify-center p-6 transition-all duration-500">
+      <div className="max-w-md w-full bg-white dark:bg-[#111C44] p-12 rounded-[50px] shadow-2xl text-center animate-in zoom-in">
+        <div className="w-24 h-24 bg-green-500 text-white rounded-[35px] flex items-center justify-center mx-auto mb-8 shadow-lg shadow-green-900/20"><CheckCircle size={48} /></div>
+        <h2 className="text-3xl font-black text-[#111C44] dark:text-white uppercase italic tracking-tighter leading-none">Request Logged</h2>
+        <p className="text-gray-400 text-sm mt-4 leading-relaxed font-medium italic">Your case has been submitted for Red Cross verification. AI matching will begin once approved.</p>
+        <button onClick={() => navigate('/dashboard')} className="w-full mt-12 bg-blue-600 text-white py-5 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl hover:bg-blue-700 transition-all">Portal Overview</button>
+      </div>
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-[#0b1121] transition-colors duration-500 pb-20 text-left">
-      <div className="max-w-5xl mx-auto py-12 px-6">
+      <div className="max-w-6xl mx-auto py-12 px-6">
         
-        {/* Navigation */}
-        <button onClick={() => navigate('/dashboard')} className="mb-10 flex items-center gap-2 text-[#111C44] dark:text-white/50 hover:text-medical-red transition-all group">
+        {/* HEADER BAR */}
+        <div className="mb-10 flex justify-between items-center">
+          <button onClick={() => navigate('/dashboard')} className="flex items-center gap-2 text-[#111C44] dark:text-white/50 hover:text-blue-600 transition-all group">
             <div className="p-2 rounded-xl bg-white dark:bg-white/5 shadow-md border border-gray-100 dark:border-white/5 group-hover:-translate-x-1 transition-transform">
-                <ArrowLeft size={20} />
+                <ArrowLeft size={18} />
             </div>
-            <span className="text-[10px] font-black uppercase tracking-widest">Back to Dashboard</span>
-        </button>
+            <span className="text-[10px] font-black uppercase tracking-widest">Dashboard</span>
+          </button>
+
+          <button onClick={toggleTheme} className="p-3 rounded-2xl bg-white dark:bg-white/5 text-[#111C44] dark:text-white border border-gray-200 dark:border-white/10 shadow-xl">
+            {isDarkMode ? <Sun size={20} className="text-yellow-400" /> : <Moon size={20} />}
+          </button>
+        </div>
 
         <div className="mb-12">
-            <h1 className="text-4xl font-black text-[#111C44] dark:text-white tracking-tighter uppercase italic">Request Support</h1>
-            <p className="text-gray-400 dark:text-white/30 text-[10px] font-bold uppercase tracking-[0.3em] mt-1">Official Medical Assistance Form</p>
+            <h1 className="text-4xl font-black text-[#111C44] dark:text-white tracking-tighter uppercase italic leading-none">Request Assistance</h1>
+            <p className="text-gray-400 dark:text-white/30 text-[10px] font-bold uppercase tracking-[0.3em] mt-2 italic tracking-[0.5em]">Medical Coordination Registry</p>
         </div>
 
         <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-10">
           
-          {/* Main Info Column */}
           <div className="lg:col-span-2 space-y-8">
+            {/* CARD 1: CATEGORY & URGENCY */}
             <div className="bg-white dark:bg-[#111C44] p-10 rounded-[50px] shadow-2xl border border-gray-100 dark:border-white/5">
-              <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-medical-red mb-8 italic">1. Request Parameters</h3>
+              <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-blue-600 mb-8 italic">1. Case Classification</h3>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-3">
-                  <label className="text-[9px] font-black uppercase text-gray-400 dark:text-white/40 ml-2 tracking-widest">Donation Type</label>
+                  <label className="text-[9px] font-black uppercase text-gray-400 dark:text-white/40 ml-2 block tracking-widest">Support Category</label>
                   <select 
-                    className="w-full p-4 rounded-2xl bg-gray-50 dark:bg-[#0b1121] border-none outline-none font-bold text-sm text-[#111C44] dark:text-white appearance-none cursor-pointer"
+                    className="w-full p-5 rounded-2xl bg-gray-50 dark:bg-[#0b1121] border-none outline-none font-bold text-sm text-[#111C44] dark:text-white appearance-none cursor-pointer shadow-inner"
                     value={formData.donationType}
                     onChange={(e) => setFormData({...formData, donationType: e.target.value})}
                   >
                     <option value="Blood">Blood Donation</option>
                     <option value="In_Kind">Medical Supplies</option>
                     <option value="Financial">Financial Aid</option>
+                    <option value="Organ">Organ Replacement</option>
                   </select>
                 </div>
 
                 <div className="space-y-3">
-                  <label className="text-[9px] font-black uppercase text-gray-400 dark:text-white/40 ml-2 tracking-widest">Urgency Level</label>
+                  <label className="text-[9px] font-black uppercase text-gray-400 dark:text-white/40 ml-2 block tracking-widest">Triage Level</label>
                   <select 
-                    className="w-full p-4 rounded-2xl bg-gray-50 dark:bg-[#0b1121] border-none outline-none font-bold text-sm text-[#111C44] dark:text-white appearance-none cursor-pointer"
+                    className={`w-full p-5 rounded-2xl border-none outline-none font-black text-[10px] uppercase tracking-widest appearance-none cursor-pointer shadow-inner ${
+                        formData.urgencyLevel === 'Critical' ? 'bg-red-500 text-white' : 'bg-gray-50 dark:bg-[#0b1121] text-blue-600 dark:text-blue-400'
+                    }`}
                     value={formData.urgencyLevel}
                     onChange={(e) => setFormData({...formData, urgencyLevel: e.target.value})}
                   >
-                    <option value="Low">Low (Routine)</option>
+                    <option value="Low">Low (Stability)</option>
                     <option value="Medium">Medium (Urgent)</option>
                     <option value="High">High (Immediate)</option>
-                    <option value="Critical">Critical (Life-Saving)</option>
+                    <option value="Critical">Critical (Emergency)</option>
                   </select>
                 </div>
               </div>
 
-              {/* Conditional: Blood Type Grid */}
-              {formData.donationType === 'Blood' && (
-                <div className="mt-10 animate-in slide-in-from-left duration-300">
-                  <label className="text-[9px] font-black uppercase text-gray-400 dark:text-white/40 ml-2 tracking-widest">Required Blood Group</label>
-                  <div className="grid grid-cols-4 gap-3 mt-4">
-                    {['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map(type => (
-                      <button 
-                        key={type} type="button"
-                        onClick={() => setFormData({...formData, requiredBloodType: type})}
-                        className={`py-3 rounded-xl font-black text-xs transition-all border ${
-                          formData.requiredBloodType === type 
-                          ? 'bg-medical-red border-medical-red text-white shadow-lg shadow-red-900/40' 
-                          : 'bg-gray-50 dark:bg-[#0b1121] border-transparent text-gray-400 dark:text-white/20'
-                        }`}
-                      >
-                        {type}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
+              {/* DYNAMIC CATEGORY FIELDS */}
+              <div className="mt-10 pt-10 border-t border-gray-50 dark:border-white/5 animate-in slide-in-from-left duration-300">
+                {formData.donationType === 'Blood' && (
+                    <div className="grid grid-cols-4 gap-3">
+                        {['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map(type => (
+                        <button key={type} type="button" onClick={() => setFormData({...formData, requiredBloodType: type})}
+                            className={`py-3 rounded-xl font-black text-xs transition-all border ${formData.requiredBloodType === type ? 'bg-blue-600 border-blue-600 text-white shadow-lg' : 'bg-gray-50 dark:bg-[#0b1121] border-transparent text-gray-400'}`}>{type}</button>
+                        ))}
+                    </div>
+                )}
 
-              {/* Conditional: In-Kind Inputs */}
-              {formData.donationType === 'In_Kind' && (
-                <div className="mt-10 grid grid-cols-2 gap-6 animate-in slide-in-from-left">
-                  <input 
-                    placeholder="Item needed (e.g. Wheelchair)" 
-                    className="w-full p-4 rounded-2xl bg-gray-50 dark:bg-[#0b1121] border-none outline-none dark:text-white font-bold text-sm"
-                    onChange={(e) => setFormData({...formData, itemType: e.target.value})}
-                  />
-                  <input 
-                    type="number" placeholder="Quantity" 
-                    className="w-full p-4 rounded-2xl bg-gray-50 dark:bg-[#0b1121] border-none outline-none dark:text-white font-bold text-sm"
-                    onChange={(e) => setFormData({...formData, itemQuantity: parseInt(e.target.value)})}
-                  />
-                </div>
-              )}
+                {formData.donationType === 'In_Kind' && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <input placeholder="Item (Oxygen, wheelchair...)" required value={formData.itemType} onChange={(e) => setFormData({...formData, itemType: e.target.value})}
+                               className="p-4 rounded-2xl bg-gray-50 dark:bg-[#0b1121] border-none outline-none font-bold text-sm dark:text-white shadow-inner" />
+                        <input type="number" placeholder="Quantity" value={formData.itemQuantity} onChange={(e) => setFormData({...formData, itemQuantity: parseInt(e.target.value)})}
+                               className="p-4 rounded-2xl bg-gray-50 dark:bg-[#0b1121] border-none outline-none font-bold text-sm dark:text-white shadow-inner" />
+                    </div>
+                )}
+
+                {formData.donationType === 'Organ' && (
+                    <input placeholder="Required Organ (e.g. Kidney)" required value={formData.organType} onChange={(e) => setFormData({...formData, organType: e.target.value})}
+                           className="w-full p-4 rounded-2xl bg-gray-50 dark:bg-[#0b1121] border-none outline-none font-bold text-sm dark:text-white shadow-inner" />
+                )}
+              </div>
             </div>
 
+            {/* CARD 2: MEDICAL AUTHORITY */}
             <div className="bg-white dark:bg-[#111C44] p-10 rounded-[50px] shadow-2xl border border-gray-100 dark:border-white/5">
-              <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-medical-red mb-8 italic">2. Clinical Authority</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                 <input 
-                    placeholder="Hospital Name" required
-                    className="w-full p-4 rounded-2xl bg-gray-50 dark:bg-[#0b1121] border-none outline-none dark:text-white font-bold text-sm"
-                    onChange={(e) => setFormData({...formData, hospitalName: e.target.value})}
-                 />
-                 <input 
-                    placeholder="Attending Physician" required
-                    className="w-full p-4 rounded-2xl bg-gray-50 dark:bg-[#0b1121] border-none outline-none dark:text-white font-bold text-sm"
-                    onChange={(e) => setFormData({...formData, attendingDoctor: e.target.value})}
-                 />
+              <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-blue-600 mb-8 italic">2. Clinical Details</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                 <div className="space-y-2">
+                    <label className="text-[9px] font-black uppercase text-gray-400 ml-2">Hospital Center</label>
+                    <input placeholder="Addis Ababa Hospital..." required value={formData.hospitalName} onChange={(e) => setFormData({...formData, hospitalName: e.target.value})}
+                           className="w-full p-4 rounded-2xl bg-gray-50 dark:bg-[#0b1121] border-none outline-none dark:text-white font-bold text-sm" />
+                 </div>
+                 <div className="space-y-2">
+                    <label className="text-[9px] font-black uppercase text-gray-400 ml-2">Attending Doctor</label>
+                    <input placeholder="Physician Name" required value={formData.attendingDoctor} onChange={(e) => setFormData({...formData, attendingDoctor: e.target.value})}
+                           className="w-full p-4 rounded-2xl bg-gray-50 dark:bg-[#0b1121] border-none outline-none dark:text-white font-bold text-sm" />
+                 </div>
               </div>
-              <textarea 
-                placeholder="Additional clinical notes..."
-                className="w-full mt-8 p-6 h-32 rounded-3xl bg-gray-50 dark:bg-[#0b1121] border-none outline-none dark:text-white text-sm resize-none shadow-inner"
-                onChange={(e) => setFormData({...formData, notes: e.target.value})}
-              />
+              <textarea placeholder="Diagnostic summary or specific needs..." value={formData.notes} onChange={(e) => setFormData({...formData, notes: e.target.value})}
+                        className="w-full p-6 h-32 rounded-3xl bg-gray-50 dark:bg-[#0b1121] border-none outline-none dark:text-white text-sm resize-none shadow-inner" />
             </div>
           </div>
 
-          {/* Right Column: Upload & Submit */}
+          {/* RIGHT COLUMN: DOCUMENTATION */}
           <div className="space-y-8">
-             <div className={`p-10 rounded-[50px] shadow-2xl text-white transition-all ${isDarkMode ? 'bg-medical-red/10 border border-medical-red/20' : 'bg-[#111C44]'}`}>
-                <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-medical-red mb-8">3. Verification</h3>
-                <div className="p-8 border-2 border-dashed border-white/10 rounded-[35px] flex flex-col items-center text-center">
-                   <Upload className="text-medical-red mb-4" size={32} />
-                   <p className="text-[10px] font-black uppercase tracking-widest mb-2">Medical Proof</p>
-                   <p className="text-white/30 text-[9px] mb-8 lowercase">Doctor's request or Hospital referral (PDF/JPG)</p>
-                   <input 
-                      type="file" required 
-                      className="text-[9px] text-white/40 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:bg-medical-red file:text-white file:font-black cursor-pointer"
-                      onChange={(e) => setFormData({...formData, document: e.target.files[0]})}
-                   />
+             <div className="bg-[#111C44] dark:bg-[#1e293b] p-10 rounded-[55px] shadow-2xl text-white">
+                <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-blue-500 mb-8">3. Verification</h3>
+                <div className="p-8 border-2 border-dashed border-white/10 rounded-[35px] flex flex-col items-center text-center group hover:border-blue-500 transition-all cursor-pointer">
+                   <Upload className="text-blue-500 mb-4 group-hover:animate-bounce" size={32} />
+                   <p className="text-[10px] font-bold uppercase tracking-widest mb-2">Medical Proof</p>
+                   <p className="text-white/20 text-[9px] mb-8 lowercase leading-relaxed">Upload authenticated doctor's request or hospital referral (PDF/JPG)</p>
+                   <input type="file" required className="text-[9px] text-white/40 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:bg-blue-600 file:text-white file:font-black"
+                          onChange={(e) => setFormData({...formData, document: e.target.files[0]})} />
                 </div>
 
                 {message.text && (
-                  <div className={`mt-8 p-4 rounded-2xl flex items-center gap-3 border ${
-                    message.type === 'success' ? 'bg-green-500/20 border-green-500/20 text-green-400' : 'bg-red-500/20 border-red-500/20 text-red-400'
-                  }`}>
-                    {message.type === 'success' ? <CheckCircle size={16}/> : <AlertTriangle size={16}/>}
-                    <p className="text-[10px] font-black uppercase tracking-widest leading-tight">{message.text}</p>
+                  <div className={`mt-8 p-4 rounded-2xl flex items-center gap-3 border ${message.type === 'error' ? 'bg-red-500/20 border-red-500/20 text-red-400' : 'bg-green-500/20 border-green-500/20 text-green-400'}`}>
+                    <AlertTriangle size={16}/><p className="text-[10px] font-black uppercase leading-tight">{message.text}</p>
                   </div>
                 )}
 
-                <button 
-                  type="submit" disabled={loading}
-                  className="w-full mt-10 bg-medical-red text-white py-6 rounded-[25px] font-black text-xs uppercase tracking-[0.4em] shadow-xl hover:bg-red-700 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
-                >
-                  {loading ? 'PROCESSING...' : <><Send size={18}/> Send Request</>}
+                <button type="submit" disabled={loading} className="w-full mt-10 bg-blue-600 text-white py-6 rounded-[25px] font-black text-xs uppercase tracking-[0.3em] shadow-xl hover:bg-blue-700 transition-all flex items-center justify-center gap-3 disabled:opacity-50">
+                  {loading ? 'SYNCHRONIZING...' : <><FileText size={18}/> Send Request</>}
                 </button>
 
-                <p className="mt-8 flex items-center justify-center gap-2 text-[8px] font-black text-white/20 uppercase tracking-[0.2em] text-center">
-                  <Info size={12} /> HIPAA Standard Coordination
+                <p className="mt-8 flex items-center justify-center gap-2 text-[8px] font-black text-white/10 uppercase tracking-[0.2em] text-center">
+                  <Activity size={12} /> Real-time Matching Enabled
                 </p>
              </div>
           </div>

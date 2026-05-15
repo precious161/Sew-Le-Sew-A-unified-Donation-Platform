@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom'; 
-import { Save, AlertCircle, CheckCircle, Info, Droplets, Ruler, Moon, Sun, ArrowLeft } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Save, Activity, AlertCircle, CheckCircle, Info, Droplets, Ruler, ArrowLeft, Sun, Moon } from 'lucide-react';
 import DonationService from '../../../services/DonationService';
 import { useTheme } from '../../../context/ThemeContext';
 
@@ -9,7 +9,7 @@ const HealthInfo = () => {
   const { isDarkMode, toggleTheme } = useTheme();
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
-  const [isUpdated, setIsUpdated] = useState(false); 
+  const [hasExistingData, setHasExistingData] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
 
   const [formData, setFormData] = useState({
@@ -21,29 +21,29 @@ const HealthInfo = () => {
     notes: ''
   });
 
-  // FIXED: This now actually fetches your data from the database
+  // 1. DYNAMIC PERSISTENCE: Fetch data on load
   useEffect(() => {
-    const fetchExistingData = async () => {
+    const loadData = async () => {
       try {
-        const res = await DonationService.getHealthInfo(); 
+        const res = await DonationService.getHealthInfo();
         if (res.success && res.data) {
-           setFormData({
-             bloodType: res.data.bloodType || '',
-             weight: res.data.weight || '',
-             height: res.data.height || '',
-             medicalConditions: res.data.medicalConditions || '',
-             allergies: res.data.allergies || '',
-             notes: res.data.notes || ''
-           });
-           setIsUpdated(true); // Data exists, so button will say "Edit"
+          setFormData({
+            bloodType: res.data.bloodType || '',
+            weight: res.data.weight || '',
+            height: res.data.height || '',
+            medicalConditions: res.data.medicalConditions || '',
+            allergies: res.data.allergies || '',
+            notes: res.data.notes || ''
+          });
+          setHasExistingData(true);
         }
       } catch (error) {
-        console.log("No profile found, user needs to create one.");
+        console.log("No existing profile. Creating fresh record.");
       } finally {
         setFetching(false);
       }
     };
-    fetchExistingData();
+    loadData();
   }, []);
 
   const handleSubmit = async (e) => {
@@ -52,18 +52,22 @@ const HealthInfo = () => {
     setMessage({ type: '', text: '' });
 
     try {
+      // Backend expects Floats for vitals
       const payload = {
         ...formData,
         weight: parseFloat(formData.weight),
         height: parseFloat(formData.height)
       };
+
       const res = await DonationService.submitHealthInfo(payload);
+      
       if (res.success) {
-        setMessage({ type: 'success', text: 'Medical record synchronized successfully.' });
-        setIsUpdated(true); 
+        setMessage({ type: 'success', text: 'Medical record synchronized with registry.' });
+        setHasExistingData(true);
       }
     } catch (err) {
-      setMessage({ type: 'error', text: err.response?.data?.message || 'Update failed.' });
+      const errorMsg = err.response?.data?.message || 'Update failed. Check your inputs.';
+      setMessage({ type: 'error', text: errorMsg });
     } finally {
       setLoading(false);
     }
@@ -79,6 +83,7 @@ const HealthInfo = () => {
     <div className="min-h-screen bg-gray-50 dark:bg-[#0b1121] transition-colors duration-500 pb-20 text-left">
       <div className="max-w-4xl mx-auto py-12 px-6">
         
+        {/* TOP BAR */}
         <div className="mb-10 flex justify-between items-center">
           <button 
             onClick={() => navigate('/dashboard')} 
@@ -98,12 +103,12 @@ const HealthInfo = () => {
           </button>
         </div>
 
-        <div className="mb-10 text-left text-left">
+        <div className="mb-10">
             <h1 className="text-4xl font-black text-[#111C44] dark:text-white tracking-tighter uppercase italic">
               Medical Profile
             </h1>
             <p className="text-gray-400 dark:text-white/30 text-[10px] font-bold uppercase tracking-[0.3em] mt-1">
-              prerequisite for biological matching
+              Prerequisite for biological matching engine
             </p>
         </div>
 
@@ -121,8 +126,9 @@ const HealthInfo = () => {
           )}
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-10 mb-12">
+            {/* Blood Group */}
             <div className="space-y-3">
-              <label className="text-[10px] font-black uppercase text-gray-400 dark:text-white/40 ml-2 tracking-widest text-left">Blood Group</label>
+              <label className="text-[10px] font-black uppercase text-gray-400 dark:text-white/40 ml-2 block">Blood Group</label>
               <div className="relative">
                 <Droplets className="absolute left-4 top-1/2 -translate-y-1/2 text-medical-red" size={18} />
                 <select 
@@ -138,46 +144,42 @@ const HealthInfo = () => {
               </div>
             </div>
 
+            {/* Weight */}
             <div className="space-y-3">
-              <label className="text-[10px] font-black uppercase text-gray-400 dark:text-white/40 ml-2 tracking-widest text-left">Weight (kg)</label>
-              <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-black text-[10px]">KG</span>
-                <input 
-                  type="number" required step="0.1" placeholder="00.0"
-                  value={formData.weight}
-                  onChange={(e) => setFormData({...formData, weight: e.target.value})}
-                  className="w-full pl-12 p-4 rounded-[20px] bg-gray-50 dark:bg-[#0b1121] border-none outline-none font-bold text-sm text-[#111C44] dark:text-white shadow-inner"
-                />
-              </div>
+              <label className="text-[10px] font-black uppercase text-gray-400 dark:text-white/40 ml-2 block">Weight (kg)</label>
+              <input 
+                type="number" required step="0.1" placeholder="00.0"
+                value={formData.weight}
+                onChange={(e) => setFormData({...formData, weight: e.target.value})}
+                className="w-full p-4 rounded-[20px] bg-gray-50 dark:bg-[#0b1121] border-none outline-none font-bold text-sm text-[#111C44] dark:text-white shadow-inner"
+              />
             </div>
 
+            {/* Height */}
             <div className="space-y-3">
-              <label className="text-[10px] font-black uppercase text-gray-400 dark:text-white/40 ml-2 tracking-widest text-left">Height (cm)</label>
-              <div className="relative">
-                <Ruler className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                <input 
-                  type="number" required placeholder="000"
-                  value={formData.height}
-                  onChange={(e) => setFormData({...formData, height: e.target.value})}
-                  className="w-full pl-12 p-4 rounded-[20px] bg-gray-50 dark:bg-[#0b1121] border-none outline-none font-bold text-sm text-[#111C44] dark:text-white shadow-inner"
-                />
-              </div>
+              <label className="text-[10px] font-black uppercase text-gray-400 dark:text-white/40 ml-2 block">Height (cm)</label>
+              <input 
+                type="number" required placeholder="000"
+                value={formData.height}
+                onChange={(e) => setFormData({...formData, height: e.target.value})}
+                className="w-full p-4 rounded-[20px] bg-gray-50 dark:bg-[#0b1121] border-none outline-none font-bold text-sm text-[#111C44] dark:text-white shadow-inner"
+              />
             </div>
           </div>
 
           <div className="space-y-8 mb-12">
             <div className="space-y-3">
-              <label className="text-[10px] font-black uppercase text-gray-400 dark:text-white/40 ml-2 text-left">Medical Conditions</label>
+              <label className="text-[10px] font-black uppercase text-gray-400 dark:text-white/40 ml-2 block">Known Medical Conditions</label>
               <textarea 
                 value={formData.medicalConditions}
                 onChange={(e) => setFormData({...formData, medicalConditions: e.target.value})}
                 className="w-full p-6 h-32 rounded-[30px] bg-gray-50 dark:bg-[#0b1121] border-none outline-none font-medium text-sm text-[#111C44] dark:text-white resize-none shadow-inner"
-                placeholder="Chronic conditions..."
+                placeholder="List chronic conditions..."
               />
             </div>
 
             <div className="space-y-3">
-              <label className="text-[10px] font-black uppercase text-gray-400 dark:text-white/40 ml-2 text-left">Known Allergies</label>
+              <label className="text-[10px] font-black uppercase text-gray-400 dark:text-white/40 ml-2 block">Allergies</label>
               <textarea 
                 value={formData.allergies}
                 onChange={(e) => setFormData({...formData, allergies: e.target.value})}
@@ -194,7 +196,7 @@ const HealthInfo = () => {
             {loading ? 'SYNCHRONIZING...' : (
                <>
                  <Save size={20}/> 
-                 {isUpdated ? 'Edit Medical Information' : 'Update Medical Profile'}
+                 {hasExistingData ? 'Update Medical Information' : 'Initialize Medical Profile'}
                </>
             )}
           </button>

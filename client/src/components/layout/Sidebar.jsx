@@ -1,12 +1,11 @@
-import { ShieldCheck } from 'lucide-react';
 import React from 'react';
-import {
-  LayoutDashboard, UserCircle, Heart, LogOut, ShieldAlert,
-  Users, UserPlus, Activity, ClipboardCheck
-} from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import AuthService from '../../services/AuthService';
+import {
+  LayoutDashboard, UserCircle, Heart, LogOut, ShieldAlert,
+  Users, UserPlus, Activity, ClipboardCheck, ShieldCheck
+} from 'lucide-react';
 
 const Sidebar = ({ isDarkMode }) => {
   const navigate = useNavigate();
@@ -33,7 +32,9 @@ const Sidebar = ({ isDarkMode }) => {
         <div className="bg-medical-red p-2.5 rounded-2xl shadow-lg">
           <Heart size={24} fill="white" className="text-white" />
         </div>
-        <span className="text-2xl font-black tracking-tighter text-white uppercase italic">Sew<span className="font-light italic px-0.5 text-medical-red">le</span>Sew</span>
+        <span className="text-2xl font-black tracking-tighter text-white uppercase italic">
+          Sew<span className="font-light italic px-0.5 text-medical-red">le</span>Sew
+        </span>
       </div>
 
       <nav className="flex-1 space-y-2 overflow-y-auto custom-scrollbar pr-2 text-left">
@@ -50,20 +51,12 @@ const Sidebar = ({ isDarkMode }) => {
             <div className="pt-4 pb-2 px-6 text-[9px] font-black text-white/20 uppercase tracking-[0.3em]">Registry</div>
             <NavItem icon={<Users size={18}/>} label="Donors" active={isActive('/admin/donors')} onClick={() => navigate('/admin/donors')} />
             <NavItem icon={<UserPlus size={18}/>} label="Recipients" active={isActive('/admin/recipients')} onClick={() => navigate('/admin/recipients')} />
+            {/* Identity verification queue from feature branch */}
+            <NavItem icon={<ShieldCheck size={18}/>} label="Identity Queue" active={isActive('/admin/identities')} onClick={() => navigate('/admin/identities')} />
           </>
         )}
 
-        {isAdmin && (
-  <>
-    <div className="pt-4 pb-2 px-6 text-[9px] font-black text-white/20 uppercase tracking-[0.3em]">Registry</div>
-    <NavItem icon={<Users size={18}/>} label="Donors" active={isActive('/admin/donors')} onClick={() => navigate('/admin/donors')} />
-    <NavItem icon={<UserPlus size={18}/>} label="Recipients" active={isActive('/admin/recipients')} onClick={() => navigate('/admin/recipients')} />
-    {/* NEW: Identity verification queue */}
-    <NavItem icon={<ShieldCheck size={18}/>} label="Identity Queue" active={isActive('/admin/identities')} onClick={() => navigate('/admin/identities')} />
-  </>
-)}
-
-        {/* RECIPIENT: HEALTH INFO ONLY */}
+        {/* RECIPIENT FLOW */}
         {isRecipient && (
           <>
             <div className="pt-4 pb-2 px-6 text-[9px] font-black text-white/20 uppercase tracking-[0.3em]">Health Management</div>
@@ -76,7 +69,7 @@ const Sidebar = ({ isDarkMode }) => {
           </>
         )}
 
-        {/* DONOR: ELIGIBILITY ONLY */}
+        {/* DONOR FLOW */}
         {isDonor && (
           <>
             <div className="pt-4 pb-2 px-6 text-[9px] font-black text-white/20 uppercase tracking-[0.3em]">Vetting Hub</div>
@@ -89,23 +82,24 @@ const Sidebar = ({ isDarkMode }) => {
           </>
         )}
 
-{/* IDENTITY VERIFICATION — shown to all non-admin users */}
-       {!isAdmin && (
-  <>
-    <div className="pt-4 pb-2 px-6 text-[9px] font-black text-white/20 uppercase tracking-[0.3em]">Security</div>
-    <NavItem
-      icon={<ShieldCheck size={18} />}
-      label="Verify Identity"
-      active={isActive('/profile')}
-      onClick={() => navigate('/profile')}
-    />
-  </>
-)}
+        {/* IDENTITY VERIFICATION — shown to all non-admin users */}
+        {!isAdmin && (
+          <>
+            <div className="pt-4 pb-2 px-6 text-[9px] font-black text-white/20 uppercase tracking-[0.3em]">Security</div>
+            <NavItem
+              icon={<ShieldCheck size={18} />}
+              label="Verify Identity"
+              active={isActive('/profile')}
+              onClick={() => navigate('/profile')}
+            />
+          </>
+        )}
 
         <div className="pt-4 border-t border-white/5 mt-4"></div>
         <NavItem icon={<UserCircle size={18}/>} label="My Profile" active={isActive('/profile')} onClick={() => navigate('/profile')} />
       </nav>
 
+      {/* User Status Card */}
       <div className="pt-6 border-t border-white/5">
         <div className="flex items-center gap-4 mb-6 p-2 text-white text-left">
           <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black ${isAdmin ? 'bg-[#FFB800] text-[#111C44]' : 'bg-medical-red'}`}>
@@ -114,7 +108,7 @@ const Sidebar = ({ isDarkMode }) => {
           <div className="overflow-hidden">
             <p className="text-sm font-black truncate leading-tight uppercase tracking-tighter">{user?.FirstName}</p>
             <p className={`text-[8px] font-black tracking-widest mt-1 text-[#05CD99] uppercase`}>
-                {isAdmin ? 'SYSTEM ADMIN' : 'VERIFIED USER'}
+                {isAdmin ? 'SYSTEM ADMIN' : user?.Role}
             </p>
           </div>
         </div>
