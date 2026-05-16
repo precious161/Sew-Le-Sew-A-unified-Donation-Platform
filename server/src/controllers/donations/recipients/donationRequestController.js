@@ -105,3 +105,12 @@ export const verifyDonationRequest = async (req, res) => {
     return res.status(error.statusCode || 500).json({ success: false, message: error.message || "Failed to verify request." });
   }
 };
+
+export const getMyRequests = async (req, res) => {
+  try {
+    const requests = await DonationRequestService.getMyRequests(req.user.id);
+    return res.status(200).json({ success: true, count: requests.length, data: requests });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: "Failed to fetch your requests." });
+  }
+};
