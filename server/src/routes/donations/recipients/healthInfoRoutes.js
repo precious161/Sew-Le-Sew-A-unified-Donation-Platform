@@ -9,7 +9,7 @@ const router = Router();
 
 // ALLOW BOTH DONOR AND RECIPIENT
 router.post(
-  "/",
+  "/health-info",
   protect,
   authorize("Recipient", "Donor"),
   validateRequest(healthInfoSchema),
@@ -17,14 +17,14 @@ router.post(
 );
 
 router.get(
-  "/",
+  "/medical-profile",
   protect,
   authorize("Recipient", "Donor"),
   HealthInfoController.getHealthInfo
 );
 
 router.patch(
-  "/",
+  "/health-info",
   protect,
   authorize("Recipient", "Donor"),
   validateRequest(healthInfoSchema),
