@@ -17,13 +17,13 @@ export const donationRequestSchema = z.object({
 
     // In-Kind specific
     itemType: z.string().min(2, "Item type must be at least 2 characters").optional(),
-    itemQuantity: z.number().int().min(1, "Item quantity must be at least 1").optional(),
+    itemQuantity: z.coerce.number().int().min(1, "Item quantity must be at least 1").optional(),
 
     // Organ specific <--- THIS IS WHAT WAS MISSING!
     organType: z.string().min(2, "Organ type must be at least 2 characters").optional(),
 
     // General fields
-    quantity: z.number().int().min(1, "Quantity must be at least 1").default(1),
+    quantity: z.coerce.number().int().min(1, "Quantity must be at least 1").default(1),
     urgencyLevel: z.enum(["Low", "Medium", "High", "Critical"], {
       errorMap: () => ({ message: "Urgency level must be Low, Medium, High, or Critical." }),
     }),

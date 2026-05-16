@@ -18,7 +18,7 @@ export const registerIntentSchema = z.object({
 
     // In-Kind specific fields
     itemType: z.string().min(2, "Item type must be at least 2 characters").optional(),
-    quantity: z.number().int().min(1, "Quantity must be at least 1").optional(),
+    quantity: z.coerce.number().int().min(1, "Quantity must be at least 1").optional(),
   })
 
   // In-Kind validation

@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  ArrowLeft, Upload, Send, CheckCircle, 
-  AlertTriangle, Droplets, Box, Banknote, Info,
+import {
+  ArrowLeft, Upload, AlertTriangle, Droplets, Box, Banknote, Info,
   Stethoscope, FileText, Activity, ShieldAlert, 
-  CheckCircle2, ChevronRight, Sun, Moon, ShieldCheck // FIXED: Added missing icons here
+  CheckCircle2, ChevronRight, Sun, Moon, ShieldCheck, CheckCircle, Plus, Heart
 } from 'lucide-react';
 import DonationService from '../../../services/DonationService';
 import ProfileService from '../../../services/ProfileService';
@@ -13,13 +12,13 @@ import { useTheme } from '../../../context/ThemeContext';
 const CreateRequest = () => {
   const navigate = useNavigate();
   const { isDarkMode, toggleTheme } = useTheme();
-  
+
   const [loading, setLoading] = useState(false);
   const [verifying, setVerifying] = useState(true);
   const [accessDenied, setAccessDenied] = useState(null); 
   const [success, setSuccess] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
-  
+
   const [formData, setFormData] = useState({
     donationType: 'Blood',
     requiredBloodType: '',
@@ -30,9 +29,10 @@ const CreateRequest = () => {
     hospitalName: '',
     attendingDoctor: '',
     notes: '',
-    document: null 
+    document: null
   });
 
+  // IDENTITY AND HEALTH PREREQUISITE GUARD
   useEffect(() => {
     const checkPrerequisites = async () => {
       try {
@@ -41,7 +41,7 @@ const CreateRequest = () => {
           DonationService.getHealthInfo()
         ]);
 
-        if (pRes.data.identityStatus !== 'Verified') {
+        if (pRes.data?.identityStatus !== 'Verified') {
           setAccessDenied('IDENTITY');
         } else if (!hRes.success || !hRes.data) {
           setAccessDenied('HEALTH');
@@ -65,19 +65,26 @@ const CreateRequest = () => {
     setLoading(true);
     setMessage({ type: '', text: '' });
 
+    // CLEAN FORMDATA CONSTRUCTION (Prevents Backend Payload Zod Errors)
     const data = new FormData();
     data.append('donationType', formData.donationType);
     data.append('urgencyLevel', formData.urgencyLevel);
-    data.append('hospitalName', formData.hospitalName);
-    data.append('attendingDoctor', formData.attendingDoctor);
-    data.append('notes', formData.notes);
-    data.append('document', formData.document); 
+    data.append('document', formData.document);
 
-    if (formData.donationType === 'Blood') data.append('requiredBloodType', formData.requiredBloodType);
-    if (formData.donationType === 'Organ') data.append('organType', formData.organType);
+    if (formData.hospitalName) data.append('hospitalName', formData.hospitalName);
+    if (formData.attendingDoctor) data.append('attendingDoctor', formData.attendingDoctor);
+    if (formData.notes) data.append('notes', formData.notes);
+
+    // Conditional Categories Payload Sanitation
+    if (formData.donationType === 'Blood' && formData.requiredBloodType) {
+      data.append('requiredBloodType', formData.requiredBloodType);
+    }
+    if (formData.donationType === 'Organ' && formData.organType) {
+      data.append('organType', formData.organType);
+    }
     if (formData.donationType === 'In_Kind') {
-      data.append('itemType', formData.itemType);
-      data.append('itemQuantity', formData.itemQuantity);
+      if (formData.itemType) data.append('itemType', formData.itemType);
+      if (formData.itemQuantity) data.append('itemQuantity', formData.itemQuantity);
     }
 
     try {
@@ -87,6 +94,7 @@ const CreateRequest = () => {
       const errorMsg = err.response?.data?.message || 'Submission failed. Please check your data.';
       setMessage({ type: 'error', text: errorMsg });
     } finally {
+      loading(false);
       setLoading(false);
     }
   };
@@ -135,14 +143,14 @@ const CreateRequest = () => {
             </div>
             <span className="text-[10px] font-black uppercase tracking-widest italic">Dashboard</span>
           </button>
-          <button onClick={toggleTheme} className="p-3 rounded-2xl bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 shadow-lg text-[#111C44] dark:text-yellow-400">
-            {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
+          <button onClick={toggleTheme} className="p-3 rounded-2xl bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 shadow-lg text-[#111C44] dark:text-yellow-400 hover:scale-110 transition-all">
+            {isDarkMode ? <Sun size={20} /> : <Moon size={20} className="text-[#111C44]" />}
           </button>
         </div>
 
         <div className="mb-12">
             <h1 className="text-4xl font-black text-[#111C44] dark:text-white tracking-tighter uppercase italic leading-none">Request Support</h1>
-            <p className="text-gray-400 dark:text-white/30 text-[10px] font-bold uppercase tracking-[0.3em] mt-2 italic tracking-[0.5em]">Clinical Coordination Node</p>
+            <p className="text-gray-400 dark:text-white/30 text-[10px] font-bold uppercase tracking-[0.3em] mt-2 italic">Clinical Coordination Node</p>
         </div>
 
         <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-10">
@@ -153,7 +161,7 @@ const CreateRequest = () => {
                 <div className="space-y-3">
                   <label className="text-[9px] font-black uppercase text-gray-400 dark:text-white/40 ml-2 block tracking-widest text-left">Support Category</label>
                   <select 
-                    className="w-full p-5 rounded-2xl bg-gray-50 dark:bg-[#0b1121] border-none outline-none font-bold text-sm text-[#111C44] dark:text-white appearance-none shadow-inner"
+                    className="w-full p-5 rounded-2xl bg-gray-50 dark:bg-[#0b1121] border-none outline-none font-bold text-sm text-[#111C44] dark:text-white appearance-none shadow-inner cursor-pointer"
                     value={formData.donationType}
                     onChange={(e) => setFormData({...formData, donationType: e.target.value})}
                   >
@@ -166,7 +174,7 @@ const CreateRequest = () => {
                 <div className="space-y-3">
                   <label className="text-[9px] font-black uppercase text-gray-400 dark:text-white/40 ml-2 block tracking-widest text-left">Triage Level</label>
                   <select 
-                    className={`w-full p-5 rounded-2xl border-none outline-none font-black text-[10px] uppercase tracking-widest shadow-inner ${
+                    className={`w-full p-5 rounded-2xl border-none outline-none font-black text-[10px] uppercase tracking-widest shadow-inner cursor-pointer ${
                         formData.urgencyLevel === 'Critical' ? 'bg-red-500 text-white' : 'bg-gray-50 dark:bg-[#0b1121] text-blue-600 dark:text-blue-400'
                     }`}
                     value={formData.urgencyLevel}
@@ -191,12 +199,12 @@ const CreateRequest = () => {
                 )}
                 {formData.donationType === 'In_Kind' && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <input placeholder="Item (Oxygen, wheelchairs...)" required value={formData.itemType} onChange={(e) => setFormData({...formData, itemType: e.target.value})} className="p-5 rounded-2xl bg-gray-50 dark:bg-[#0b1121] border-none font-bold text-sm dark:text-white shadow-inner" />
-                        <input type="number" placeholder="Quantity" value={formData.itemQuantity} onChange={(e) => setFormData({...formData, itemQuantity: parseInt(e.target.value)})} className="p-5 rounded-2xl bg-gray-50 dark:bg-[#0b1121] border-none font-bold text-sm dark:text-white shadow-inner" />
+                        <input placeholder="Item (Oxygen, wheelchairs...)" required value={formData.itemType} onChange={(e) => setFormData({...formData, itemType: e.target.value})} className="p-5 rounded-2xl bg-gray-50 dark:bg-[#0b1121] border-none font-bold text-sm dark:text-white shadow-inner outline-none" />
+                        <input type="number" min="1" placeholder="Quantity" value={formData.itemQuantity} onChange={(e) => setFormData({...formData, itemQuantity: parseInt(e.target.value) || 1})} className="p-5 rounded-2xl bg-gray-50 dark:bg-[#0b1121] border-none font-bold text-sm dark:text-white shadow-inner outline-none" />
                     </div>
                 )}
                 {formData.donationType === 'Organ' && (
-                    <input placeholder="Required Organ (e.g. Kidney)" required value={formData.organType} onChange={(e) => setFormData({...formData, organType: e.target.value})} className="w-full p-5 rounded-2xl bg-gray-50 dark:bg-[#0b1121] border-none font-bold text-sm dark:text-white shadow-inner" />
+                    <input placeholder="Required Organ (e.g. Kidney)" required value={formData.organType} onChange={(e) => setFormData({...formData, organType: e.target.value})} className="w-full p-5 rounded-2xl bg-gray-50 dark:bg-[#0b1121] border-none font-bold text-sm dark:text-white shadow-inner outline-none" />
                 )}
               </div>
             </div>
@@ -204,21 +212,21 @@ const CreateRequest = () => {
             <div className="bg-white dark:bg-[#111C44] p-10 rounded-[50px] shadow-2xl border border-gray-100 dark:border-white/5">
               <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-blue-600 mb-8 italic">2. Clinical Details</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8 text-left">
-                 <input placeholder="Hospital Center" required value={formData.hospitalName} onChange={(e) => setFormData({...formData, hospitalName: e.target.value})} className="w-full p-5 rounded-2xl bg-gray-50 dark:bg-[#0b1121] border-none dark:text-white font-bold text-sm shadow-inner" />
-                 <input placeholder="Attending Doctor" required value={formData.attendingDoctor} onChange={(e) => setFormData({...formData, attendingDoctor: e.target.value})} className="w-full p-5 rounded-2xl bg-gray-50 dark:bg-[#0b1121] border-none dark:text-white font-bold text-sm shadow-inner" />
+                 <input placeholder="Hospital Center" required value={formData.hospitalName} onChange={(e) => setFormData({...formData, hospitalName: e.target.value})} className="w-full p-5 rounded-2xl bg-gray-50 dark:bg-[#0b1121] border-none dark:text-white font-bold text-sm shadow-inner outline-none" />
+                 <input placeholder="Attending Doctor" required value={formData.attendingDoctor} onChange={(e) => setFormData({...formData, attendingDoctor: e.target.value})} className="w-full p-5 rounded-2xl bg-gray-50 dark:bg-[#0b1121] border-none dark:text-white font-bold text-sm shadow-inner outline-none" />
               </div>
-              <textarea placeholder="Clinical summary..." value={formData.notes} onChange={(e) => setFormData({...formData, notes: e.target.value})} className="w-full p-6 h-32 rounded-3xl bg-gray-50 dark:bg-[#0b1121] border-none dark:text-white text-sm resize-none shadow-inner" />
+              <textarea placeholder="Clinical summary..." value={formData.notes} onChange={(e) => setFormData({...formData, notes: e.target.value})} className="w-full p-6 h-32 rounded-3xl bg-gray-50 dark:bg-[#0b1121] border-none dark:text-white text-sm resize-none shadow-inner outline-none" />
             </div>
           </div>
 
           <div className="space-y-8 text-left">
              <div className="bg-[#111C44] dark:bg-[#1e293b] p-10 rounded-[55px] shadow-2xl text-white h-fit">
                 <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-blue-500 mb-8">3. Verification</h3>
-                <div className="p-8 border-2 border-dashed border-white/10 rounded-[35px] flex flex-col items-center text-center group hover:border-blue-500 transition-all cursor-pointer bg-white/5">
+                <div className="p-8 border-2 border-dashed border-white/10 rounded-[35px] flex flex-col items-center text-center group hover:border-blue-500 transition-all cursor-pointer bg-white/5 relative">
                    <Upload className="text-blue-500 mb-4 group-hover:animate-bounce" size={32} />
                    <p className="text-[10px] font-black uppercase tracking-widest mb-2">Medical Proof</p>
                    <p className="text-white/20 text-[9px] mb-8 lowercase leading-relaxed italic">Upload physician's request (PDF/JPG)</p>
-                   <input type="file" required className="text-[9px] text-white/40 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:bg-blue-600 file:text-white file:font-black"
+                   <input type="file" required className="text-[9px] text-white/40 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:bg-blue-600 file:text-white file:font-black cursor-pointer"
                           onChange={(e) => setFormData({...formData, document: e.target.files[0]})} />
                 </div>
 
