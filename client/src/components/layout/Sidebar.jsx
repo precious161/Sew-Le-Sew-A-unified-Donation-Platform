@@ -4,7 +4,7 @@ import { useAuth } from '../../hooks/useAuth';
 import AuthService from '../../services/AuthService';
 import {
   LayoutDashboard, UserCircle, Heart, LogOut, ShieldAlert,
-  Users, UserPlus, Activity, ClipboardCheck, Fingerprint
+  Users, UserPlus, Activity, ClipboardCheck, Fingerprint, History, FileText
 } from 'lucide-react';
 
 const Sidebar = ({ isDarkMode }) => {
@@ -28,8 +28,8 @@ const Sidebar = ({ isDarkMode }) => {
       isDarkMode ? 'bg-[#0b1121] border-r border-white/5' : 'bg-[#111C44]'
     }`}>
       {/* Logo */}
-      <div className="flex items-center gap-3 mb-16 mt-4 px-2 cursor-pointer" onClick={() => navigate('/')}>
-        <div className="bg-medical-red p-2.5 rounded-2xl shadow-lg">
+      <div className="flex items-center gap-3 mb-16 mt-4 px-2 cursor-pointer group" onClick={() => navigate('/')}>
+        <div className="bg-medical-red p-2.5 rounded-2xl shadow-lg group-hover:scale-110 transition-transform">
           <Heart size={24} fill="white" className="text-white" />
         </div>
         <span className="text-2xl font-black tracking-tighter text-white uppercase italic antialiased">
@@ -45,13 +45,22 @@ const Sidebar = ({ isDarkMode }) => {
           onClick={() => navigate(isAdmin ? '/admin' : '/dashboard')}
         />
 
-        {/* ADMIN REGISTRY */}
+        {/* ADMIN REGISTRY SECTION */}
         {isAdmin && (
           <>
-            <div className="pt-4 pb-2 px-6 text-[9px] font-black text-white/20 uppercase tracking-[0.3em]">Registry</div>
-            <NavItem icon={<Fingerprint size={18}/>} label="ID Queue" active={isActive('/admin/identities')} onClick={() => navigate('/admin/identities')} />
-            <NavItem icon={<Users size={18}/>} label="Donors" active={isActive('/admin/donors')} onClick={() => navigate('/admin/donors')} />
-            <NavItem icon={<UserPlus size={18}/>} label="Recipients" active={isActive('/admin/recipients')} onClick={() => navigate('/admin/recipients')} />
+            <div className="pt-4 pb-2 px-6 text-[9px] font-black text-white/20 uppercase tracking-[0.3em]">System Hub</div>
+            
+            {/* NEW: Navigation to the Request Verification Hub */}
+            <NavItem 
+                icon={<FileText size={18}/>} 
+                label="Request Queue" 
+                active={isActive('/admin/requests')} 
+                onClick={() => navigate('/admin/requests')} 
+            />
+
+            <NavItem icon={<Fingerprint size={18}/>} label="Identity Queue" active={isActive('/admin/identities')} onClick={() => navigate('/admin/identities')} />
+            <NavItem icon={<Users size={18}/>} label="Donor List" active={isActive('/admin/donors')} onClick={() => navigate('/admin/donors')} />
+            <NavItem icon={<UserPlus size={18}/>} label="Recipient List" active={isActive('/admin/recipients')} onClick={() => navigate('/admin/recipients')} />
           </>
         )}
 
@@ -64,6 +73,12 @@ const Sidebar = ({ isDarkMode }) => {
                 label="Medical Profile"
                 active={isActive('/donations/recipient/health-info')}
                 onClick={() => navigate('/donations/recipient/health-info')}
+            />
+            <NavItem
+                icon={<History size={18}/>}
+                label="My Requests"
+                active={isActive('/recipient/my-requests')}
+                onClick={() => navigate('/recipient/my-requests')}
             />
           </>
         )}
@@ -81,22 +96,22 @@ const Sidebar = ({ isDarkMode }) => {
           </>
         )}
 
-        {/* Removed redundant "Verify Identity" block here */}
-
-        <div className="pt-4 border-t border-white/5 mt-4"></div>
+        <div className="pt-4 border-t border-white/5 mt-4 text-left"></div>
         <NavItem icon={<UserCircle size={18}/>} label="My Profile" active={isActive('/profile')} onClick={() => navigate('/profile')} />
       </nav>
 
-      {/* User Card */}
+      {/* User Status Card */}
       <div className="pt-6 border-t border-white/5">
         <div className="flex items-center gap-4 mb-6 p-2 text-white text-left">
-          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black ${isAdmin ? 'bg-[#FFB800] text-[#111C44]' : (isRecipient ? 'bg-blue-600' : 'bg-medical-red')}`}>
-            {user?.FirstName?.[0]}
+          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black shadow-lg transition-all ${
+            isAdmin ? 'bg-[#FFB800] text-[#111C44]' : (isRecipient ? 'bg-blue-600 shadow-blue-500/20' : 'bg-medical-red shadow-red-900/40')
+          }`}>
+            {user?.FirstName?.[0] || 'U'}
           </div>
           <div className="overflow-hidden">
             <p className="text-sm font-black truncate leading-tight uppercase tracking-tighter">{user?.FirstName}</p>
-            <p className={`text-[8px] font-black tracking-widest mt-1 text-[#05CD99] uppercase`}>
-                {user?.Role?.replace(/_/g, ' ')}
+            <p className={`text-[8px] font-black tracking-widest mt-1 uppercase ${isRecipient ? 'text-blue-400' : 'text-[#05CD99]'}`}>
+                {isAdmin ? 'SYSTEM ADMIN' : user?.Role}
             </p>
           </div>
         </div>

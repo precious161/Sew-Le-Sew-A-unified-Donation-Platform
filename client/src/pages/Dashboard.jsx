@@ -32,22 +32,10 @@ const Dashboard = () => {
           ProfileService.getMe()
         ]);
 
-        // Validate Health Data (Step 1)
-        if (hRes.success && hRes.data) {
-          setHealthData(hRes.data);
-        } else {
-          setHealthData(null);
-        }
-
-        // Validate Identity (Step 2)
-        if (pRes.success && pRes.data.identityStatus === 'Verified') {
-          setIsVerified(true);
-        } else {
-          setIsVerified(false);
-        }
+        if (hRes.success && hRes.data) setHealthData(hRes.data);
+        if (pRes.success && pRes.data.identityStatus === 'Verified') setIsVerified(true);
 
       } catch (err) {
-        // Reset states on error or 404 (means profile is empty)
         setHealthData(null);
         setIsVerified(false);
       } finally {
@@ -67,19 +55,18 @@ const Dashboard = () => {
     </div>
   );
 
-  // LOGIC: Support Request is unlocked ONLY when Medical is Synced AND Identity is Verified
   const canSubmitRequest = healthData !== null && isVerified === true;
 
   return (
     <div className={`flex min-h-screen transition-colors duration-500 ${isDarkMode ? 'bg-[#0b1121]' : 'bg-gray-50'}`}>
       <Sidebar isDarkMode={isDarkMode} />
       
-      <main className="flex-1 ml-72 p-10 flex flex-col text-left text-left">
-        <header className="flex justify-between items-center mb-12">
-          <div className="flex items-center gap-3 text-left">
+      <main className="flex-1 ml-72 p-10 flex flex-col text-left">
+        <header className="flex justify-between items-center mb-12 px-4">
+          <div className="flex items-center gap-3">
              <div className={`w-2 h-2 rounded-full animate-pulse ${canSubmitRequest ? 'bg-green-500' : 'bg-blue-600'}`}></div>
              <h2 className={`text-[10px] font-black uppercase tracking-[0.4em] ${isDarkMode ? 'text-white/30' : 'text-gray-400'}`}>
-               Recipient Coordination Node
+               Registry Hub • Patient Node
              </h2>
           </div>
           <button onClick={toggleTheme} className="p-3 rounded-2xl bg-white dark:bg-white/5 border border-gray-100 dark:border-white/5 shadow-lg hover:scale-110 transition-all">
@@ -99,7 +86,7 @@ const Dashboard = () => {
                   </h2>
                   <div className="flex gap-4 mt-8">
                      <StatusBadge active={isVerified} label={isVerified ? "ID Verified" : "ID Missing"} />
-                     <StatusBadge active={!!healthData} label={healthData ? "Medical Synced" : "Medical Missing"} />
+                     <StatusBadge active={!!healthData} label={healthData ? "Medical Profile Synced" : "Medical Missing"} />
                   </div>
                 </div>
                 <ShieldCheck size={280} className="absolute -right-20 -bottom-20 opacity-5" />
@@ -107,11 +94,11 @@ const Dashboard = () => {
 
            {/* ACTION HUB SECTION */}
            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-12 text-left">
-                {/* 1. MEDICAL PROFILE CARD */}
+                {/* STEP 1: MEDICAL PROFILE */}
                 <button 
                     onClick={() => navigate('/donations/recipient/health-info')}
                     className={`p-10 rounded-[55px] text-left border transition-all group relative overflow-hidden ${
-                      isDarkMode ? 'bg-white/5 border-white/5 text-white hover:bg-white/10' : 'bg-white border-gray-100 shadow-xl'
+                      isDarkMode ? 'bg-white/5 border-white/5 text-white hover:bg-white/10' : 'bg-white border-gray-100 shadow-xl shadow-gray-200/50'
                     }`}
                 >
                     <div className="flex justify-between items-start mb-8">
@@ -122,23 +109,23 @@ const Dashboard = () => {
                     </div>
                     <h3 className="text-2xl font-black tracking-tighter uppercase italic mb-2">1. Medical Profile</h3>
                     <p className="text-xs text-gray-400 font-medium italic leading-relaxed">
-                      {healthData ? "Your clinical parameters are verified." : "Register your vitals to enable matching."}
+                      {healthData ? "Clinical vitals are synchronized." : "Fill medical vitals to enable matching engine."}
                     </p>
                 </button>
 
-                {/* 2. SUPPORT REQUEST CARD (GATED) */}
+                {/* STEP 2: SUPPORT REQUEST (GATED) */}
                 <button 
                     onClick={() => canSubmitRequest && navigate('/donations/recipient/request')}
                     className={`p-10 rounded-[55px] text-left border transition-all relative overflow-hidden group ${
                         !canSubmitRequest ? 'opacity-40 grayscale cursor-not-allowed border-dashed' : 'hover:-translate-y-1 shadow-2xl active:scale-95'
                     } ${isDarkMode ? 'bg-white/5 border-white/5 text-white' : 'bg-white border-gray-100'}`}
                 >
-                    <div className={`p-4 rounded-2xl w-fit mb-8 ${canSubmitRequest ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/40' : 'bg-gray-100 text-gray-400'}`}>
+                    <div className={`p-4 rounded-2xl w-fit mb-8 ${canSubmitRequest ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/40' : 'bg-gray-200 text-gray-400'}`}>
                         {canSubmitRequest ? <Plus size={28}/> : <Lock size={28}/>}
                     </div>
                     <h3 className="text-2xl font-black tracking-tighter uppercase italic mb-2">2. Support Request</h3>
                     <p className="text-xs text-gray-400 font-medium italic leading-relaxed">
-                        {canSubmitRequest ? "Registry clearance active. You may now request assistance." : "Complete Step 1 and ID upload to unlock."}
+                        {canSubmitRequest ? "Authorization active. Create formal request." : "Verified ID and Medical Profile required to unlock."}
                     </p>
                     {canSubmitRequest && <ArrowRight className="absolute bottom-10 right-10 text-blue-600 opacity-0 group-hover:opacity-100 group-hover:translate-x-2 transition-all" size={32} />}
                 </button>
@@ -153,7 +140,6 @@ const Dashboard = () => {
   );
 };
 
-// Internal Status Helper
 const StatusBadge = ({ active, label }) => (
     <div className={`px-4 py-1.5 rounded-full border text-[9px] font-black uppercase tracking-widest transition-all ${
         active ? 'bg-green-500/20 border-green-500/30 text-green-400' : 'bg-red-500/10 border-red-500/30 text-red-400 animate-pulse'

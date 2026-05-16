@@ -5,23 +5,30 @@ import { ThemeProvider } from './context/ThemeContext';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import { useAuth } from './hooks/useAuth';
 
-// Pages
+// Shared Pages
 import SignupPage from './pages/auth/SignupPage';
 import LoginPage from './pages/auth/LoginPage';
 import Dashboard from './pages/Dashboard';
 import Profile from './pages/Profile';
 import LandingPage from './pages/landing/LandingPage';
 import EventsPage from './pages/EventsPage';
+import PlatformPage from './pages/PlatformPage';
 
-// Admin
+// Admin Pages
 import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminDonors from './pages/admin/AdminDonors';     
 import AdminRecipients from './pages/admin/AdminRecipients'; 
 import AdminIdentities from './pages/admin/AdminIdentities';
+import RequestVerification from './pages/admin/RequestVerification'; // NEW
 
 // Recipient Subsystem
 import HealthInfo from './pages/donations/recipient/HealthInfo';
 import CreateRequest from './pages/donations/recipient/CreateRequest';
+import MyRequests from './pages/donations/recipient/MyRequests'; 
+
+// Donor Subsystem
+import EligibilityQuiz from './pages/donations/donor/EligibilityQuiz';
+import RegisterIntent from './pages/donations/donor/RegisterIntent';
 
 const HomeRedirect = () => {
   const { user } = useAuth();
@@ -37,20 +44,28 @@ function App() {
           <Routes>
             <Route path="/" element={<LandingPage />} />
             <Route path="/events" element={<EventsPage />} />
+            <Route path="/platform" element={<PlatformPage />} />
             <Route path="/signup" element={<SignupPage />} />
             <Route path="/login" element={<LoginPage />} />
 
             <Route path="/dashboard" element={<ProtectedRoute allowedRoles={['Donor', 'Recipient', 'Red_Cross_Admin']}><HomeRedirect /></ProtectedRoute>} />
             <Route path="/profile" element={<ProtectedRoute allowedRoles={['Donor', 'Recipient', 'Red_Cross_Admin']}><Profile /></ProtectedRoute>} />
 
-            {/* FIXED RECIPIENT PATHS */}
+            {/* RECIPIENT ROUTES */}
             <Route path="/donations/recipient/health-info" element={<ProtectedRoute allowedRoles={['Recipient']}><HealthInfo /></ProtectedRoute>} />
             <Route path="/donations/recipient/request" element={<ProtectedRoute allowedRoles={['Recipient']}><CreateRequest /></ProtectedRoute>} />
+            <Route path="/recipient/my-requests" element={<ProtectedRoute allowedRoles={['Recipient']}><MyRequests /></ProtectedRoute>} />
 
+            {/* DONOR ROUTES */}
+            <Route path="/donations/donor/check" element={<ProtectedRoute allowedRoles={['Donor']}><EligibilityQuiz /></ProtectedRoute>} />
+            <Route path="/donations/donor/register-intent" element={<ProtectedRoute allowedRoles={['Donor']}><RegisterIntent /></ProtectedRoute>} />
+
+            {/* ADMIN SYSTEM ROUTES */}
             <Route path="/admin" element={<ProtectedRoute allowedRoles={['Red_Cross_Admin']}><AdminDashboard /></ProtectedRoute>} />
             <Route path="/admin/donors" element={<ProtectedRoute allowedRoles={['Red_Cross_Admin']}><AdminDonors /></ProtectedRoute>} />
             <Route path="/admin/recipients" element={<ProtectedRoute allowedRoles={['Red_Cross_Admin']}><AdminRecipients /></ProtectedRoute>} />
             <Route path="/admin/identities" element={<ProtectedRoute allowedRoles={['Red_Cross_Admin']}><AdminIdentities /></ProtectedRoute>} />
+            <Route path="/admin/requests" element={<ProtectedRoute allowedRoles={['Red_Cross_Admin']}><RequestVerification /></ProtectedRoute>} /> {/* NEW */}
 
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
