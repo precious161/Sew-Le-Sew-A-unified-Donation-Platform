@@ -6,8 +6,8 @@ import Sidebar from '../components/layout/Sidebar';
 import DonationService from '../services/DonationService';
 import ProfileService from '../services/ProfileService';
 import {
-  Sun, Moon, ShieldCheck, Activity, Plus,
-  Lock, CheckCircle, Clock, Search, HeartPulse
+  Sun, Moon, ShieldCheck, Activity, Plus, Heart, Lock, 
+  CheckCircle, Clock, Search, HeartPulse, ArrowRight
 } from 'lucide-react';
 
 const Dashboard = () => {
@@ -20,26 +20,25 @@ const Dashboard = () => {
   const [activeRequests, setActiveRequests] = useState([]);
 
   useEffect(() => {
-    if (user?.Role === 'Red_Cross_Admin') navigate('/admin', { replace: true });
+    if (user?.Role === 'Red_Cross_Admin') {
+      navigate('/admin', { replace: true });
+    }
 
     const syncRegistryData = async () => {
       try {
         const [pRes, hRes, reqRes, quizRes] = await Promise.all([
           ProfileService.getMe(),
-
-          // Added logging here to catch the silent error!
           DonationService.getHealthInfo().catch((err) => {
             console.error("Health Info Fetch Failed:", err.message);
             return { success: false };
           }),
-
           user?.Role === 'Recipient' ? DonationService.getMyRequests().catch(() => ({ data: [] })) : Promise.resolve({ data: [] }),
           user?.Role === 'Donor' ? DonationService.getEligibilityHistory().catch(() => ({ data: [] })) : Promise.resolve({ data: [] })
         ]);
 
         setStatus({
           identity: pRes.data?.identityStatus || 'Unverified',
-          hasHealthData: hRes.success === true || hRes.data != null, // Robust check
+          hasHealthData: hRes.success === true || hRes.data != null,
           passedQuiz: quizRes.data?.length > 0 && quizRes.data[0].isEligible
         });
 
@@ -52,7 +51,7 @@ const Dashboard = () => {
       }
     };
 
-    if (user) syncRegistryData();
+  if (user) syncRegistryData();
   }, [user, navigate]);
 
   if (!user || user.Role === 'Red_Cross_Admin') return null;
@@ -82,19 +81,27 @@ const Dashboard = () => {
 
       <main className="flex-1 ml-72 p-10 flex flex-col text-left">
         <header className="flex justify-between items-center mb-12">
-          <h2 className={`text-[10px] font-black uppercase tracking-[0.4em] ${isDarkMode ? 'text-white/30' : 'text-gray-400'}`}>
-             {isRecipient ? 'Patient Portal' : 'Donor Portal'} • Registry Node
-          </h2>
-          <button onClick={toggleTheme} className="p-3 rounded-2xl bg-white dark:bg-white/5 border border-gray-100 dark:border-white/10 shadow-lg">
-            {isDarkMode ? <Sun size={20} className="text-yellow-400" /> : <Moon size={20} />}
+          <div className="flex items-center gap-3">
+             <div className={`w-2 h-2 rounded-full animate-pulse ${canProceed ? 'bg-green-500' : 'bg-blue-600'}`}></div>
+             <h2 className={`text-[10px] font-black uppercase tracking-[0.4em] ${isDarkMode ? 'text-white/30' : 'text-gray-400'}`}>
+                {isRecipient ? 'Recipient Coordination Node' : 'Donor Portal • Registry Node'}
+             </h2>
+          </div>
+          <button onClick={toggleTheme} className="p-3 rounded-2xl bg-white dark:bg-white/5 border border-gray-100 dark:border-white/10 shadow-lg hover:scale-110 transition-all">
+            {isDarkMode ? <Sun size={20} className="text-yellow-400" /> : <Moon size={20} className="text-[#111C44]" />}
           </button>
         </header>
 
         <div className="flex-1 max-w-6xl w-full mx-auto animate-in fade-in duration-1000">
-
-           <div className="rounded-[60px] p-16 shadow-2xl text-white relative overflow-hidden bg-[#111C44] mb-12">
-                <div className="relative z-10 text-left">
-                  <h2 className="text-7xl font-black italic tracking-tighter leading-none">Welcome, <br /> {user?.FirstName}!</h2>
+           
+           {/* BANNER SECTION */}
+           <div className={`rounded-[60px] p-16 shadow-2xl text-white relative overflow-hidden transition-all duration-700 ${
+             canProceed ? 'bg-blue-600 shadow-blue-900/30' : 'bg-[#111C44]'
+           }`}>
+                <div className="relative z-10">
+                  <h2 className="text-7xl font-black italic tracking-tighter leading-none">
+                    Welcome, <br /> {user?.FirstName}!
+                  </h2>
                   <div className="flex gap-4 mt-8">
                      <StatusBadge active={isVerified} label={isVerified ? "ID Verified" : "Identity Missing"} />
                      {isRecipient && <StatusBadge active={status.hasHealthData} label={status.hasHealthData ? "Medical Synced" : "Medical Missing"} />}
@@ -104,8 +111,9 @@ const Dashboard = () => {
                 <ShieldCheck size={280} className="absolute -right-20 -bottom-20 opacity-5" />
            </div>
 
+           {/* ACTIVE REQUESTS TIMELINE TRACKER */}
            {isRecipient && activeRequests.length > 0 && (
-             <div className="mb-12 space-y-6">
+             <div className="mb-12 space-y-6 mt-12">
                 <h3 className="text-xl font-black tracking-tighter uppercase italic text-[#111C44] dark:text-white mb-4">Patient Overview</h3>
                 {activeRequests.map((req, idx) => {
                   const step = getProgressStep(req.status);
@@ -136,13 +144,15 @@ const Dashboard = () => {
              </div>
            )}
 
-           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+           {/* ACTION HUB SECTION */}
+           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-12">
+                {/* CARD 1: MEDICAL ACTION */}
                 <button
                     onClick={() => navigate(isRecipient ? '/donations/recipient/health-info' : '/donations/donor/check')}
                     className={`p-10 rounded-[55px] text-left border transition-all ${isDarkMode ? 'bg-white/5 border-white/5 text-white hover:bg-white/10' : 'bg-white border-gray-100 text-[#111C44] shadow-xl shadow-gray-200/50 hover:-translate-y-1'}`}
                 >
                     <div className="p-4 bg-medical-red/10 rounded-2xl w-fit mb-6 text-medical-red">
-                      {isRecipient ? <Activity size={28}/> : <Droplets size={28}/>}
+                      <Activity size={28}/>
                     </div>
                     <h3 className="text-2xl font-black tracking-tighter uppercase italic mb-2">
                       1. {isRecipient ? 'Medical Profile' : 'Eligibility Quiz'}
@@ -152,26 +162,31 @@ const Dashboard = () => {
                     </p>
                 </button>
 
+                {/* CARD 2: DISPATCH GATED ACTION */}
                 <button
-                    onClick={() => canProceed && navigate(isRecipient ? '/recipient/new-request' : '/donations/donor/register-intent')}
+                    onClick={() => canProceed && navigate(isRecipient ? '/donations/recipient/request' : '/donations/donor/register-intent')}
                     className={`p-10 rounded-[55px] text-left border transition-all relative overflow-hidden group ${
-                        !canProceed ? 'opacity-40 grayscale cursor-not-allowed border-dashed' : 'hover:-translate-y-1 shadow-2xl'
+                        !canProceed ? 'opacity-40 grayscale cursor-not-allowed border-dashed' : 'hover:-translate-y-1 shadow-2xl active:scale-95'
                     } ${isDarkMode ? 'bg-white/5 border-white/5 text-white' : 'bg-white border-gray-100'}`}
                 >
-                    <div className={`p-4 rounded-2xl w-fit mb-6 ${canProceed ? 'bg-blue-600 text-white shadow-lg' : 'bg-gray-200 text-gray-400'}`}>
+                    <div className={`p-4 rounded-2xl w-fit mb-6 ${canProceed ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/40' : 'bg-gray-100 text-gray-400'}`}>
                         {canProceed ? (isRecipient ? <Plus size={28}/> : <Heart size={28}/>) : <Lock size={28}/>}
                     </div>
                     <h3 className="text-2xl font-black tracking-tighter uppercase italic mb-2">
-                      {/* FIX: NOW SAYS REQUEST SUPPORT INSTEAD OF DONATION */}
-                      2. {isRecipient ? 'Request Donation' : 'Register Intent'}
+                      2. {isRecipient ? 'Support Request' : 'Register Intent'}
                     </h3>
                     <p className="text-xs text-gray-400 font-medium italic leading-relaxed">
                         {canProceed
-                          ? (isRecipient ? "Submit clinical proof to start the Matching process." : "Enter the active registry to save a life.")
+                          ? (isRecipient ? "Registry clearance active. You may now request assistance." : "Enter the active registry to save a life.")
                           : "Finish Step 1 and verify your Identity to unlock this feature."}
                     </p>
+                    {canProceed && <ArrowRight className="absolute bottom-10 right-10 text-blue-600 opacity-0 group-hover:opacity-100 group-hover:translate-x-2 transition-all" size={32} />}
                 </button>
            </div>
+
+           <p className="mt-16 text-center text-[8px] font-black text-gray-300 dark:text-white/10 uppercase tracking-[0.5em]">
+             Sew le Sew • Authorized Core Registry Node
+           </p>
         </div>
       </main>
     </div>
@@ -179,8 +194,8 @@ const Dashboard = () => {
 };
 
 const StatusBadge = ({ active, label }) => (
-    <div className={`px-4 py-1.5 rounded-full border text-[9px] font-black uppercase tracking-widest ${
-        active ? 'bg-green-500/20 border-green-500/30 text-green-400' : 'bg-red-500/20 border-red-500/30 text-red-400 animate-pulse'
+    <div className={`px-4 py-1.5 rounded-full border text-[9px] font-black uppercase tracking-widest transition-all ${
+        active ? 'bg-green-500/20 border-green-500/30 text-green-400' : 'bg-red-500/10 border-red-500/30 text-red-400'
     }`}>
         {label}
     </div>
