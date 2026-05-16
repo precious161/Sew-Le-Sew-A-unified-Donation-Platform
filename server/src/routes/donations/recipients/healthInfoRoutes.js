@@ -17,7 +17,7 @@ router.post(
 );
 
 router.get(
-  "/medical-profile",
+  "/health-info",
   protect,
   authorize("Recipient", "Donor"),
   HealthInfoController.getHealthInfo

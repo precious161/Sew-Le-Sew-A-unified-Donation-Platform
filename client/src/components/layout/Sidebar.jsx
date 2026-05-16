@@ -4,7 +4,7 @@ import { useAuth } from '../../hooks/useAuth';
 import AuthService from '../../services/AuthService';
 import {
   LayoutDashboard, UserCircle, Heart, LogOut, ShieldAlert,
-  Users, UserPlus, Activity, ClipboardCheck, ShieldCheck
+  Users, UserPlus, Activity, ClipboardCheck, ShieldCheck, HeartPulse
 } from 'lucide-react';
 
 const Sidebar = ({ isDarkMode }) => {
@@ -51,7 +51,6 @@ const Sidebar = ({ isDarkMode }) => {
             <div className="pt-4 pb-2 px-6 text-[9px] font-black text-white/20 uppercase tracking-[0.3em]">Registry</div>
             <NavItem icon={<Users size={18}/>} label="Donors" active={isActive('/admin/donors')} onClick={() => navigate('/admin/donors')} />
             <NavItem icon={<UserPlus size={18}/>} label="Recipients" active={isActive('/admin/recipients')} onClick={() => navigate('/admin/recipients')} />
-            {/* Identity verification queue from feature branch */}
             <NavItem icon={<ShieldCheck size={18}/>} label="Identity Queue" active={isActive('/admin/identities')} onClick={() => navigate('/admin/identities')} />
           </>
         )}
@@ -66,18 +65,31 @@ const Sidebar = ({ isDarkMode }) => {
                 active={isActive('/donations/recipient/health-info')}
                 onClick={() => navigate('/donations/recipient/health-info')}
             />
+            <NavItem
+                icon={<ShieldAlert size={18}/>}
+                label="Request Donation"
+                active={isActive('/recipient/new-request')}
+                onClick={() => navigate('/recipient/new-request')}
+            />
           </>
         )}
 
         {/* DONOR FLOW */}
         {isDonor && (
           <>
-            <div className="pt-4 pb-2 px-6 text-[9px] font-black text-white/20 uppercase tracking-[0.3em]">Vetting Hub</div>
+            <div className="pt-4 pb-2 px-6 text-[9px] font-black text-white/20 uppercase tracking-[0.3em]">Donation Hub</div>
             <NavItem
               icon={<ClipboardCheck size={18}/>}
               label="Eligibility Quiz"
               active={isActive('/donations/donor/check')}
               onClick={() => navigate('/donations/donor/check')}
+            />
+            {/* NEW: ADDED PLEDGE BUTTON FOR DONORS */}
+            <NavItem
+              icon={<HeartPulse size={18}/>}
+              label="Register Intent"
+              active={isActive('/donations/donor/register-intent')}
+              onClick={() => navigate('/donations/donor/register-intent')}
             />
           </>
         )}

@@ -40,4 +40,11 @@ router.patch(
   DonationRequestController.verifyDonationRequest
 );
 
+router.get(
+  "/requests/me",
+  protect,
+  authorize("Recipient"),
+  DonationRequestController.getMyRequests
+);
+
 export default router;

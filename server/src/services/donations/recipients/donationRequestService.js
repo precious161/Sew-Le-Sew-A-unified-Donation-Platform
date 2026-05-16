@@ -303,3 +303,11 @@ export const getPendingVerificationRequests = async (page = 1, limit = 20) => {
     currentPage: page,
   };
 };
+
+export const getMyRequests = async (userId) => {
+  return await prisma.donationRequest.findMany({
+    where: { recipientId: userId },
+    include: { matches: true },
+    orderBy: { requestDate: "desc" },
+  });
+};

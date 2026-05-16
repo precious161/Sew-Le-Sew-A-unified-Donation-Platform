@@ -5,63 +5,85 @@ import { useTheme } from '../context/ThemeContext';
 import Sidebar from '../components/layout/Sidebar';
 import DonationService from '../services/DonationService';
 import ProfileService from '../services/ProfileService';
-import { 
+import {
   Sun, Moon, ShieldCheck, Activity, Plus,
-  Lock, FilePlus, AlertCircle 
+  Lock, CheckCircle, Clock, Search, HeartPulse
 } from 'lucide-react';
 
 const Dashboard = () => {
   const { user } = useAuth();
   const { isDarkMode, toggleTheme } = useTheme();
   const navigate = useNavigate();
-  
+
   const [loading, setLoading] = useState(true);
-  const [healthData, setHealthData] = useState(null);
-  const [isVerified, setIsVerified] = useState(false);
+  const [status, setStatus] = useState({ identity: 'Unverified', hasHealthData: false, passedQuiz: false });
+  const [activeRequests, setActiveRequests] = useState([]);
 
   useEffect(() => {
     if (user?.Role === 'Red_Cross_Admin') navigate('/admin', { replace: true });
 
     const syncRegistryData = async () => {
       try {
-        // Fetch both Identity and Health Info
-        const [hRes, pRes] = await Promise.all([
-          DonationService.getHealthInfo(),
-          ProfileService.getMe()
+        const [pRes, hRes, reqRes, quizRes] = await Promise.all([
+          ProfileService.getMe(),
+
+          // Added logging here to catch the silent error!
+          DonationService.getHealthInfo().catch((err) => {
+            console.error("Health Info Fetch Failed:", err.message);
+            return { success: false };
+          }),
+
+          user?.Role === 'Recipient' ? DonationService.getMyRequests().catch(() => ({ data: [] })) : Promise.resolve({ data: [] }),
+          user?.Role === 'Donor' ? DonationService.getEligibilityHistory().catch(() => ({ data: [] })) : Promise.resolve({ data: [] })
         ]);
 
-        if (hRes.success) setHealthData(hRes.data);
-        if (pRes.success && pRes.data.identityStatus === 'Verified') setIsVerified(true);
+        setStatus({
+          identity: pRes.data?.identityStatus || 'Unverified',
+          hasHealthData: hRes.success === true || hRes.data != null, // Robust check
+          passedQuiz: quizRes.data?.length > 0 && quizRes.data[0].isEligible
+        });
+
+        if (reqRes.data) setActiveRequests(reqRes.data);
+
       } catch (err) {
-        console.log("Dashboard Sync: Awaiting full registration.");
+        console.error("Dashboard Sync Failed", err);
       } finally {
         setLoading(false);
       }
     };
 
-    if (user?.Role === 'Recipient') syncRegistryData();
-    else setLoading(false);
+    if (user) syncRegistryData();
   }, [user, navigate]);
 
   if (!user || user.Role === 'Red_Cross_Admin') return null;
 
   if (loading) return (
     <div className="h-screen flex items-center justify-center bg-white dark:bg-[#0b1121]">
-       <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600"></div>
+       <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-medical-red"></div>
     </div>
   );
 
-  // LOGIC: Unlock Request ONLY IF Profile is filled AND Identity is verified
-  const canSubmitRequest = healthData && isVerified;
+  const isVerified = status.identity === 'Verified';
+  const isRecipient = user.Role === 'Recipient';
+  const isDonor = user.Role === 'Donor';
+  const canProceed = isVerified && (isRecipient ? status.hasHealthData : status.passedQuiz);
+
+  const getProgressStep = (reqStatus) => {
+    if (reqStatus === 'PendingVerification') return 1;
+    if (reqStatus === 'Pending') return 2;
+    if (reqStatus === 'Matching') return 3;
+    if (reqStatus === 'Fulfilled') return 4;
+    return 0;
+  };
 
   return (
     <div className={`flex min-h-screen transition-colors duration-500 ${isDarkMode ? 'bg-[#0b1121]' : 'bg-gray-50'}`}>
       <Sidebar isDarkMode={isDarkMode} />
-      
+
       <main className="flex-1 ml-72 p-10 flex flex-col text-left">
         <header className="flex justify-between items-center mb-12">
           <h2 className={`text-[10px] font-black uppercase tracking-[0.4em] ${isDarkMode ? 'text-white/30' : 'text-gray-400'}`}>
-             Patient Portal • Registry Node
+             {isRecipient ? 'Patient Portal' : 'Donor Portal'} • Registry Node
           </h2>
           <button onClick={toggleTheme} className="p-3 rounded-2xl bg-white dark:bg-white/5 border border-gray-100 dark:border-white/10 shadow-lg">
             {isDarkMode ? <Sun size={20} className="text-yellow-400" /> : <Moon size={20} />}
@@ -69,42 +91,84 @@ const Dashboard = () => {
         </header>
 
         <div className="flex-1 max-w-6xl w-full mx-auto animate-in fade-in duration-1000">
-           
-           {/* WELCOME BANNER */}
+
            <div className="rounded-[60px] p-16 shadow-2xl text-white relative overflow-hidden bg-[#111C44] mb-12">
                 <div className="relative z-10 text-left">
                   <h2 className="text-7xl font-black italic tracking-tighter leading-none">Welcome, <br /> {user?.FirstName}!</h2>
                   <div className="flex gap-4 mt-8">
                      <StatusBadge active={isVerified} label={isVerified ? "ID Verified" : "Identity Missing"} />
-                     <StatusBadge active={!!healthData} label={healthData ? "Medical Synced" : "Medical Missing"} />
+                     {isRecipient && <StatusBadge active={status.hasHealthData} label={status.hasHealthData ? "Medical Synced" : "Medical Missing"} />}
+                     {isDonor && <StatusBadge active={status.passedQuiz} label={status.passedQuiz ? "Quiz Passed" : "Quiz Pending"} />}
                   </div>
                 </div>
                 <ShieldCheck size={280} className="absolute -right-20 -bottom-20 opacity-5" />
            </div>
 
-           {/* ACTION CARDS (Moved up, Vitals Grid removed) */}
+           {isRecipient && activeRequests.length > 0 && (
+             <div className="mb-12 space-y-6">
+                <h3 className="text-xl font-black tracking-tighter uppercase italic text-[#111C44] dark:text-white mb-4">Patient Overview</h3>
+                {activeRequests.map((req, idx) => {
+                  const step = getProgressStep(req.status);
+                  return (
+                    <div key={idx} className={`p-8 rounded-[40px] shadow-xl border ${isDarkMode ? 'bg-white/5 border-white/5 text-white' : 'bg-white border-gray-100 text-[#111C44]'}`}>
+                      <div className="flex justify-between items-start mb-8">
+                         <div>
+                           <h4 className="font-black text-lg">Request #{req.id.substring(0,8).toUpperCase()}</h4>
+                           <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">{req.donationType} • {req.hospitalName || 'Pending'}</p>
+                         </div>
+                         <div className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest ${req.urgencyLevel === 'Critical' ? 'bg-red-500/10 text-red-500' : 'bg-orange-500/10 text-orange-500'}`}>
+                           {req.urgencyLevel} Urgency
+                         </div>
+                      </div>
+
+                      <div className="relative flex justify-between items-center mt-12 mb-4 px-4">
+                         <div className="absolute top-1/2 left-0 w-full h-1 bg-gray-100 dark:bg-white/10 -z-10 -translate-y-1/2 rounded-full"></div>
+                         <div className="absolute top-1/2 left-0 h-1 bg-blue-600 -z-10 -translate-y-1/2 rounded-full transition-all duration-1000" style={{ width: `${(step - 1) * 33.33}%` }}></div>
+
+                         <ProgressNode active={step >= 1} icon={<Clock size={14}/>} label="Submitted" />
+                         <ProgressNode active={step >= 2} icon={<ShieldCheck size={14}/>} label="Medically Verified" />
+                         <ProgressNode active={step >= 3} icon={<Search size={14}/>} label="AI Matching..." />
+                         <ProgressNode active={step >= 4} icon={<HeartPulse size={14}/>} label="Donor Found" />
+                      </div>
+                    </div>
+                  );
+                })}
+             </div>
+           )}
+
            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <button 
-                    onClick={() => navigate('/donations/recipient/health-info')}
+                <button
+                    onClick={() => navigate(isRecipient ? '/donations/recipient/health-info' : '/donations/donor/check')}
                     className={`p-10 rounded-[55px] text-left border transition-all ${isDarkMode ? 'bg-white/5 border-white/5 text-white hover:bg-white/10' : 'bg-white border-gray-100 text-[#111C44] shadow-xl shadow-gray-200/50 hover:-translate-y-1'}`}
                 >
-                    <div className="p-4 bg-medical-red/10 rounded-2xl w-fit mb-6 text-medical-red"><Activity size={28}/></div>
-                    <h3 className="text-2xl font-black tracking-tighter uppercase italic mb-2">1. Medical Profile</h3>
-                    <p className="text-xs text-gray-400 font-medium italic">Synchronize clinical vitals for biological matching.</p>
+                    <div className="p-4 bg-medical-red/10 rounded-2xl w-fit mb-6 text-medical-red">
+                      {isRecipient ? <Activity size={28}/> : <Droplets size={28}/>}
+                    </div>
+                    <h3 className="text-2xl font-black tracking-tighter uppercase italic mb-2">
+                      1. {isRecipient ? 'Medical Profile' : 'Eligibility Quiz'}
+                    </h3>
+                    <p className="text-xs text-gray-400 font-medium italic">
+                      {isRecipient ? "Synchronize clinical vitals for biological matching." : "Pass the medical screening to unlock pledging."}
+                    </p>
                 </button>
 
-                <button 
-                    onClick={() => canSubmitRequest && navigate('/recipient/new-request')}
+                <button
+                    onClick={() => canProceed && navigate(isRecipient ? '/recipient/new-request' : '/donations/donor/register-intent')}
                     className={`p-10 rounded-[55px] text-left border transition-all relative overflow-hidden group ${
-                        !canSubmitRequest ? 'opacity-40 grayscale cursor-not-allowed border-dashed' : 'hover:-translate-y-1 shadow-2xl'
+                        !canProceed ? 'opacity-40 grayscale cursor-not-allowed border-dashed' : 'hover:-translate-y-1 shadow-2xl'
                     } ${isDarkMode ? 'bg-white/5 border-white/5 text-white' : 'bg-white border-gray-100'}`}
                 >
-                    <div className={`p-4 rounded-2xl w-fit mb-6 ${canSubmitRequest ? 'bg-blue-600 text-white shadow-lg' : 'bg-gray-200 text-gray-400'}`}>
-                        {canSubmitRequest ? <Plus size={28}/> : <Lock size={28}/>}
+                    <div className={`p-4 rounded-2xl w-fit mb-6 ${canProceed ? 'bg-blue-600 text-white shadow-lg' : 'bg-gray-200 text-gray-400'}`}>
+                        {canProceed ? (isRecipient ? <Plus size={28}/> : <Heart size={28}/>) : <Lock size={28}/>}
                     </div>
-                    <h3 className="text-2xl font-black tracking-tighter uppercase italic mb-2">2. Request Support</h3>
+                    <h3 className="text-2xl font-black tracking-tighter uppercase italic mb-2">
+                      {/* FIX: NOW SAYS REQUEST SUPPORT INSTEAD OF DONATION */}
+                      2. {isRecipient ? 'Request Donation' : 'Register Intent'}
+                    </h3>
                     <p className="text-xs text-gray-400 font-medium italic leading-relaxed">
-                        {canSubmitRequest ? "Submit clinical proof to start AI matching." : "Finish Steps 1 & 2 to unlock requests."}
+                        {canProceed
+                          ? (isRecipient ? "Submit clinical proof to start the Matching process." : "Enter the active registry to save a life.")
+                          : "Finish Step 1 and verify your Identity to unlock this feature."}
                     </p>
                 </button>
            </div>
@@ -120,6 +184,15 @@ const StatusBadge = ({ active, label }) => (
     }`}>
         {label}
     </div>
+);
+
+const ProgressNode = ({ active, icon, label }) => (
+  <div className="flex flex-col items-center gap-3">
+    <div className={`w-10 h-10 rounded-full flex items-center justify-center border-4 transition-all duration-500 ${active ? 'bg-blue-600 border-white text-white shadow-lg shadow-blue-500/40' : 'bg-gray-100 dark:bg-[#0b1121] border-gray-200 dark:border-white/10 text-gray-400'}`}>
+      {active ? <CheckCircle size={16} /> : icon}
+    </div>
+    <span className={`text-[9px] font-black uppercase tracking-widest text-center w-24 ${active ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-600'}`}>{label}</span>
+  </div>
 );
 
 export default Dashboard;

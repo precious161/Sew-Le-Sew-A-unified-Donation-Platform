@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  ArrowLeft, Upload, Send, CheckCircle, 
+import {
+  ArrowLeft, Upload, Send, CheckCircle,
   AlertTriangle, Droplets, Box, Banknote, Info,
   Stethoscope, ShieldAlert, FileText, UserCheck, Activity
 } from 'lucide-react';
@@ -12,13 +12,13 @@ import { useTheme } from '../../../context/ThemeContext';
 const CreateRequest = () => {
   const navigate = useNavigate();
   const { isDarkMode, toggleTheme } = useTheme();
-  
+
   const [loading, setLoading] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [isVerified, setIsVerified] = useState(false);
   const [success, setSuccess] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
-  
+
   const [formData, setFormData] = useState({
     donationType: 'Blood',
     requiredBloodType: '',
@@ -29,10 +29,10 @@ const CreateRequest = () => {
     itemQuantity: 1,
     organType: '',
     notes: '',
-    document: null 
+    document: null
   });
 
-  // 1. IDENTITY GUARD: Recipients must be verified to make a request
+  // IDENTITY GUARD
   useEffect(() => {
     const checkVerification = async () => {
       try {
@@ -59,21 +59,28 @@ const CreateRequest = () => {
     setLoading(true);
     setMessage({ type: '', text: '' });
 
+    // CLEAN FORMDATA CONSTRUCTION (Prevents Zod Errors)
     const data = new FormData();
     data.append('donationType', formData.donationType);
     data.append('urgencyLevel', formData.urgencyLevel);
-    data.append('hospitalName', formData.hospitalName);
-    data.append('attendingDoctor', formData.attendingDoctor);
-    data.append('notes', formData.notes);
-    data.append('document', formData.document); 
+    data.append('document', formData.document);
+
+    // Only append optional fields if they actually have a value!
+    if (formData.hospitalName) data.append('hospitalName', formData.hospitalName);
+    if (formData.attendingDoctor) data.append('attendingDoctor', formData.attendingDoctor);
+    if (formData.notes) data.append('notes', formData.notes);
 
     // Category Specific Logic
-    if (formData.donationType === 'Blood') data.append('requiredBloodType', formData.requiredBloodType);
-    if (formData.donationType === 'In_Kind') {
-      data.append('itemType', formData.itemType);
-      data.append('itemQuantity', formData.itemQuantity);
+    if (formData.donationType === 'Blood' && formData.requiredBloodType) {
+      data.append('requiredBloodType', formData.requiredBloodType);
     }
-    if (formData.donationType === 'Organ') data.append('organType', formData.organType);
+    if (formData.donationType === 'In_Kind') {
+      if (formData.itemType) data.append('itemType', formData.itemType);
+      if (formData.itemQuantity) data.append('itemQuantity', formData.itemQuantity);
+    }
+    if (formData.donationType === 'Organ' && formData.organType) {
+      data.append('organType', formData.organType);
+    }
 
     try {
       const res = await DonationService.createDonationRequest(data);
@@ -88,7 +95,6 @@ const CreateRequest = () => {
 
   if (checkingAuth) return <div className="h-screen flex items-center justify-center bg-[#0b1121] text-white font-black animate-pulse uppercase tracking-[0.5em]">Authorizing Portal...</div>;
 
-  // --- ACCESS DENIED: IF UNVERIFIED ---
   if (!isVerified) return (
     <div className="min-h-screen bg-gray-50 dark:bg-[#0b1121] flex items-center justify-center p-6 transition-all duration-500">
       <div className="max-w-md w-full bg-white dark:bg-[#111C44] p-12 rounded-[50px] shadow-2xl text-center border border-gray-100 dark:border-white/5 animate-in zoom-in">
@@ -104,7 +110,6 @@ const CreateRequest = () => {
     </div>
   );
 
-  // --- SUCCESS VIEW ---
   if (success) return (
     <div className="min-h-screen bg-gray-50 dark:bg-[#0b1121] flex items-center justify-center p-6 transition-all duration-500">
       <div className="max-w-md w-full bg-white dark:bg-[#111C44] p-12 rounded-[50px] shadow-2xl text-center animate-in zoom-in">
@@ -119,8 +124,6 @@ const CreateRequest = () => {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-[#0b1121] transition-colors duration-500 pb-20 text-left">
       <div className="max-w-6xl mx-auto py-12 px-6">
-        
-        {/* HEADER BAR */}
         <div className="mb-10 flex justify-between items-center">
           <button onClick={() => navigate('/dashboard')} className="flex items-center gap-2 text-[#111C44] dark:text-white/50 hover:text-blue-600 transition-all group">
             <div className="p-2 rounded-xl bg-white dark:bg-white/5 shadow-md border border-gray-100 dark:border-white/5 group-hover:-translate-x-1 transition-transform">
@@ -128,7 +131,6 @@ const CreateRequest = () => {
             </div>
             <span className="text-[10px] font-black uppercase tracking-widest">Dashboard</span>
           </button>
-
           <button onClick={toggleTheme} className="p-3 rounded-2xl bg-white dark:bg-white/5 text-[#111C44] dark:text-white border border-gray-200 dark:border-white/10 shadow-xl">
             {isDarkMode ? <Sun size={20} className="text-yellow-400" /> : <Moon size={20} />}
           </button>
@@ -140,16 +142,13 @@ const CreateRequest = () => {
         </div>
 
         <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-10">
-          
           <div className="lg:col-span-2 space-y-8">
-            {/* CARD 1: CATEGORY & URGENCY */}
             <div className="bg-white dark:bg-[#111C44] p-10 rounded-[50px] shadow-2xl border border-gray-100 dark:border-white/5">
               <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-blue-600 mb-8 italic">1. Case Classification</h3>
-              
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-3">
                   <label className="text-[9px] font-black uppercase text-gray-400 dark:text-white/40 ml-2 block tracking-widest">Support Category</label>
-                  <select 
+                  <select
                     className="w-full p-5 rounded-2xl bg-gray-50 dark:bg-[#0b1121] border-none outline-none font-bold text-sm text-[#111C44] dark:text-white appearance-none cursor-pointer shadow-inner"
                     value={formData.donationType}
                     onChange={(e) => setFormData({...formData, donationType: e.target.value})}
@@ -160,10 +159,9 @@ const CreateRequest = () => {
                     <option value="Organ">Organ Replacement</option>
                   </select>
                 </div>
-
                 <div className="space-y-3">
                   <label className="text-[9px] font-black uppercase text-gray-400 dark:text-white/40 ml-2 block tracking-widest">Triage Level</label>
-                  <select 
+                  <select
                     className={`w-full p-5 rounded-2xl border-none outline-none font-black text-[10px] uppercase tracking-widest appearance-none cursor-pointer shadow-inner ${
                         formData.urgencyLevel === 'Critical' ? 'bg-red-500 text-white' : 'bg-gray-50 dark:bg-[#0b1121] text-blue-600 dark:text-blue-400'
                     }`}
@@ -178,7 +176,6 @@ const CreateRequest = () => {
                 </div>
               </div>
 
-              {/* DYNAMIC CATEGORY FIELDS */}
               <div className="mt-10 pt-10 border-t border-gray-50 dark:border-white/5 animate-in slide-in-from-left duration-300">
                 {formData.donationType === 'Blood' && (
                     <div className="grid grid-cols-4 gap-3">
@@ -188,16 +185,14 @@ const CreateRequest = () => {
                         ))}
                     </div>
                 )}
-
                 {formData.donationType === 'In_Kind' && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <input placeholder="Item (Oxygen, wheelchair...)" required value={formData.itemType} onChange={(e) => setFormData({...formData, itemType: e.target.value})}
                                className="p-4 rounded-2xl bg-gray-50 dark:bg-[#0b1121] border-none outline-none font-bold text-sm dark:text-white shadow-inner" />
-                        <input type="number" placeholder="Quantity" value={formData.itemQuantity} onChange={(e) => setFormData({...formData, itemQuantity: parseInt(e.target.value)})}
+                        <input type="number" min="1" placeholder="Quantity" value={formData.itemQuantity} onChange={(e) => setFormData({...formData, itemQuantity: parseInt(e.target.value) || ''})}
                                className="p-4 rounded-2xl bg-gray-50 dark:bg-[#0b1121] border-none outline-none font-bold text-sm dark:text-white shadow-inner" />
                     </div>
                 )}
-
                 {formData.donationType === 'Organ' && (
                     <input placeholder="Required Organ (e.g. Kidney)" required value={formData.organType} onChange={(e) => setFormData({...formData, organType: e.target.value})}
                            className="w-full p-4 rounded-2xl bg-gray-50 dark:bg-[#0b1121] border-none outline-none font-bold text-sm dark:text-white shadow-inner" />
@@ -205,7 +200,6 @@ const CreateRequest = () => {
               </div>
             </div>
 
-            {/* CARD 2: MEDICAL AUTHORITY */}
             <div className="bg-white dark:bg-[#111C44] p-10 rounded-[50px] shadow-2xl border border-gray-100 dark:border-white/5">
               <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-blue-600 mb-8 italic">2. Clinical Details</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
@@ -225,7 +219,6 @@ const CreateRequest = () => {
             </div>
           </div>
 
-          {/* RIGHT COLUMN: DOCUMENTATION */}
           <div className="space-y-8">
              <div className="bg-[#111C44] dark:bg-[#1e293b] p-10 rounded-[55px] shadow-2xl text-white">
                 <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-blue-500 mb-8">3. Verification</h3>

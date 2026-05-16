@@ -1,29 +1,41 @@
 import api from '../api/axios';
 
 const DonationService = {
-    // 1. RECIPIENT: Get existing health info
+    // ── RECIPIENT ENDPOINTS ──
     getHealthInfo: async () => {
         const response = await api.get('/donations/recipient/health-info');
         return response.data;
     },
-
-    // 2. RECIPIENT: Save/Update health info
     submitHealthInfo: async (healthData) => {
         const response = await api.post('/donations/recipient/health-info', healthData);
         return response.data;
     },
-
-    // 3. RECIPIENT: Submit a support request (Doctor note upload)
     createDonationRequest: async (formData) => {
         const response = await api.post('/donations/recipient/request', formData, {
             headers: { 'Content-Type': 'multipart/form-data' }
         });
         return response.data;
     },
-
-    // 4. RECIPIENT: Get my active requests
     getMyRequests: async () => {
         const response = await api.get('/donations/recipient/requests/me');
+        return response.data;
+    },
+
+    // ── DONOR ENDPOINTS ──
+    checkEligibility: async (category, answers) => {
+        // Backend expects { category, answers }
+        const response = await api.post('/donations/donor/check', { category, answers });
+        return response.data;
+    },
+    getEligibilityHistory: async () => {
+        const response = await api.get('/donations/donor/eligibilityHistory');
+        return response.data;
+    },
+    registerIntent: async (formData) => {
+        // Backend now expects FormData because Organ intents require a medical document!
+        const response = await api.post('/donations/donor/register-intent', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+        });
         return response.data;
     }
 };
