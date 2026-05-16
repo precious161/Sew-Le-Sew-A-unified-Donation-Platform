@@ -15,6 +15,9 @@ import donationRoutes from "./routes/donations/index.js";
 // Import Matching routes
 import matchingRoutes from "./routes/matching/index.js";
 
+// Import Audit routes
+import auditRoutes from "./routes/security/auditRoutes.js";
+
 dotenv.config();
 
 const app=express();
@@ -57,6 +60,9 @@ app.use("/api/donations",donationRoutes);
 
 // Matching Routes
 app.use("/api/matching", matchingRoutes);
+
+// Audit Routes
+app.use("/api/admin/audit", auditRoutes);
 
 app.use((req,res)=>{
    res.status(StatusCodes.NOT_FOUND).json({

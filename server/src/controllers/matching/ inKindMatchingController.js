@@ -1,5 +1,5 @@
-
 import * as InKindMatchingService from "../../services/matching/inKindMatchingService.js";
+import * as AuditService from "../../services/security/auditService.js";
 
 // ─────────────────────────────────────────
 // Admin: Manually trigger matching engine
@@ -141,16 +141,11 @@ export const completeInKindDonation = async (req, res) => {
 
     await InKindMatchingService.confirmInKindCompletion(matchId, adminId);
 
-    return res.status(200).json({
-      success: true,
-      message: "In-Kind donation marked as completed successfully.",
-    });
+    // --- AUDIT LOG ---
+    await AuditService.createLogEntry(adminId, "Completed In-Kind Donation", "Match", `Match ID: ${matchId}`);
+
+    return res.status(200).json({ success: true, message: "In-Kind donation marked as completed successfully." });
   } catch (error) {
-    console.error("completeInKindDonation Error:", error);
-    const status = error.statusCode || 500;
-    return res.status(status).json({
-      success: false,
-      message: error.message || "Failed to complete In-Kind donation.",
-    });
+    return res.status(error.statusCode || 500).json({ success: false, message: error.message });
   }
 };

@@ -1,5 +1,5 @@
-
 import * as BloodMatchingService from "../../services/matching/bloodMatchingService.js";
+import * as AuditService from "../../services/security/auditService.js";
 
 // ─────────────────────────────────────────
 // Admin: Manually trigger matching engine
@@ -137,16 +137,11 @@ export const completeBloodDonation = async (req, res) => {
 
     await BloodMatchingService.confirmDonationCompletion(matchId, adminId);
 
-    return res.status(200).json({
-      success: true,
-      message: "Donation marked as completed successfully.",
-    });
+    // --- AUDIT LOG ---
+    await AuditService.createLogEntry(adminId, "Completed Blood Donation", "Match", `Match ID: ${matchId}`);
+
+    return res.status(200).json({ success: true, message: "Donation marked as completed successfully." });
   } catch (error) {
-    console.error("completeBloodDonation Error:", error);
-    const status = error.statusCode || 500;
-    return res.status(status).json({
-      success: false,
-      message: error.message || "Failed to complete donation.",
-    });
+    return res.status(error.statusCode || 500).json({ success: false, message: error.message });
   }
 };

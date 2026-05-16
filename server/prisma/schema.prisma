@@ -124,6 +124,8 @@ model User {
   verifiedIntents        DonationIntent[]        @relation("IntentVerifier")
   verifiedIdentities     User[]                  @relation("IdentityVerifier")
   identityVerifierAdmin  User?                   @relation("IdentityVerifier", fields: [identityVerifiedBy], references: [id])
+  donationHistory        DonationHistory[]       @relation("DonorHistory")
+  auditLogs              AuditLog[]              @relation("AdminAuditLogs")
 }
 
 model BlacklistedToken {
@@ -142,6 +144,18 @@ model Notification {
 
   // Relations
   user User @relation(fields: [userId], references: [id])
+}
+
+model AuditLog {
+  id           String   @id @default(uuid())
+  adminId      String
+  action       String   // e.g., "Approved donor-recipient match"
+  targetEntity String   // e.g., "Match", "User", "DonationRequest"
+  remarks      String?  // e.g., "Urgent request approved"
+  createdAt    DateTime @default(now()) // Maps to ActionDate in your doc
+
+  // Relations
+  admin        User     @relation("AdminAuditLogs", fields: [adminId], references: [id])
 }
 
 // ─────────────────────────────────────────
@@ -262,6 +276,26 @@ model DonationRequest {
   matches        Match[]
 }
 
+model DonationHistory {
+  id              String      @id @default(uuid())
+  donorId         String
+  donationDate    DateTime    @default(now())
+  donationType    Category
+  quantity        Int?
+  location        String?
+  complications   String?
+  remarks         String?
+  status          MatchStatus @default(Completed)
+
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  // Relations
+  donor           User        @relation("DonorHistory", fields: [donorId], references: [id])
+  matchId         String?     @unique
+  match           Match?      @relation(fields: [matchId], references: [id])
+}
+
 // ─────────────────────────────────────────
 // Matching Subsystem
 // ─────────────────────────────────────────
@@ -288,6 +322,7 @@ model Match {
   confirmedByUser User?           @relation("MatchConfirmer", fields: [confirmedBy], references: [id])
 
   @@unique([requestId, status])
+donationHistory DonationHistory?
 }
 
 
