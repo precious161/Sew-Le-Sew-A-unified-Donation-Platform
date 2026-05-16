@@ -1,5 +1,6 @@
 import { StatusCodes } from "http-status-codes";
 import prisma from "../../config/db.js";
+import * as AuditService from "../../services/security/auditService.js";
 
 export const monitorActivity = async (req, res) => {
   try {
@@ -11,34 +12,15 @@ export const monitorActivity = async (req, res) => {
       prisma.user.findMany({
         skip,
         take: limit,
-        select: {
-          id: true,
-          FirstName: true,
-          LastName: true,
-          EmailAddress: true,
-          Role: true,
-          status: true,
-          identityStatus: true,
-        },
+        select: { id: true, FirstName: true, LastName: true, EmailAddress: true, Role: true, status: true, identityStatus: true },
         orderBy: { createdAt: "desc" },
       }),
       prisma.user.count(),
     ]);
 
-    return res.status(StatusCodes.OK).json({
-      success: true,
-      count: users.length,
-      totalCount,
-      totalPages: Math.ceil(totalCount / limit),
-      currentPage: page,
-      data: users,
-    });
+    return res.status(StatusCodes.OK).json({ success: true, count: users.length, totalCount, totalPages: Math.ceil(totalCount / limit), currentPage: page, data: users });
   } catch (error) {
-    console.error("monitorActivity Error:", error);
-    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      success: false,
-      message: "Error monitoring users",
-    });
+    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ success: false, message: "Error monitoring users" });
   }
 };
 
@@ -48,12 +30,7 @@ export const deactivateUser = async (req, res) => {
     const { status } = req.body;
 
     const validStatuses = ["Active", "Deactivated"];
-    if (!validStatuses.includes(status)) {
-      return res.status(StatusCodes.BAD_REQUEST).json({
-        success: false,
-        message: "Invalid status value",
-      });
-    }
+    if (!validStatuses.includes(status)) return res.status(StatusCodes.BAD_REQUEST).json({ success: false, message: "Invalid status value" });
 
     const updatedUser = await prisma.user.update({
       where: { id },
@@ -61,17 +38,12 @@ export const deactivateUser = async (req, res) => {
       select: { id: true, FirstName: true, LastName: true, status: true },
     });
 
-    return res.status(StatusCodes.OK).json({
-      success: true,
-      message: `User status updated to ${status}`,
-      data: updatedUser,
-    });
+    // --- AUDIT LOG ---
+    await AuditService.createLogEntry(req.user.id, `Changed User Status to ${status}`, "User", `User ID: ${id}`);
+
+    return res.status(StatusCodes.OK).json({ success: true, message: `User status updated to ${status}`, data: updatedUser });
   } catch (error) {
-    console.error("deactivateUser Error:", error);
-    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      success: false,
-      message: "Action failed",
-    });
+    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ success: false, message: "Action failed" });
   }
 };
 
@@ -81,12 +53,7 @@ export const assignRole = async (req, res) => {
     const { Role } = req.body;
 
     const validRoles = ["Red_Cross_Admin", "Donor", "Recipient"];
-    if (!validRoles.includes(Role)) {
-      return res.status(StatusCodes.BAD_REQUEST).json({
-        success: false,
-        message: "Invalid role value",
-      });
-    }
+    if (!validRoles.includes(Role)) return res.status(StatusCodes.BAD_REQUEST).json({ success: false, message: "Invalid role value" });
 
     const updatedUser = await prisma.user.update({
       where: { id },
@@ -94,17 +61,12 @@ export const assignRole = async (req, res) => {
       select: { id: true, Role: true },
     });
 
-    return res.status(StatusCodes.OK).json({
-      success: true,
-      message: `User role updated to ${Role}`,
-      data: updatedUser,
-    });
+    // --- AUDIT LOG ---
+    await AuditService.createLogEntry(req.user.id, `Changed User Role to ${Role}`, "User", `User ID: ${id}`);
+
+    return res.status(StatusCodes.OK).json({ success: true, message: `User role updated to ${Role}`, data: updatedUser });
   } catch (error) {
-    console.error("assignRole Error:", error);
-    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      success: false,
-      message: "Role assignment failed",
-    });
+    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ success: false, message: "Role assignment failed" });
   }
 };
 
@@ -112,29 +74,12 @@ export const getPendingIdentities = async (req, res) => {
   try {
     const pendingUsers = await prisma.user.findMany({
       where: { identityStatus: "Pending" },
-      select: {
-        id: true,
-        FirstName: true,
-        LastName: true,
-        EmailAddress: true,
-        Role: true,
-        identityDocumentUrl: true,
-        createdAt: true,
-      },
-      orderBy: { createdAt: "asc" }, // Oldest pending uploads first
+      select: { id: true, FirstName: true, LastName: true, EmailAddress: true, Role: true, identityDocumentUrl: true, createdAt: true },
+      orderBy: { createdAt: "asc" },
     });
-
-    return res.status(StatusCodes.OK).json({
-      success: true,
-      count: pendingUsers.length,
-      data: pendingUsers,
-    });
+    return res.status(StatusCodes.OK).json({ success: true, count: pendingUsers.length, data: pendingUsers });
   } catch (error) {
-    console.error("getPendingIdentities Error:", error);
-    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      success: false,
-      message: "Error fetching pending identities.",
-    });
+    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ success: false, message: "Error fetching pending identities." });
   }
 };
 
@@ -144,54 +89,26 @@ export const reviewIdentity = async (req, res) => {
     const { id: userIdToVerify } = req.params;
     const { approved, rejectionReason } = req.body;
 
-    if (typeof approved !== "boolean") {
-      return res.status(StatusCodes.BAD_REQUEST).json({
-        success: false,
-        message: "Field 'approved' must be a boolean (true or false).",
-      });
-    }
-
-    if (!approved && !rejectionReason) {
-      return res.status(StatusCodes.BAD_REQUEST).json({
-        success: false,
-        message: "Rejection reason is required if you are rejecting this identity.",
-      });
-    }
+    if (typeof approved !== "boolean") return res.status(StatusCodes.BAD_REQUEST).json({ success: false, message: "Field 'approved' must be a boolean." });
+    if (!approved && !rejectionReason) return res.status(StatusCodes.BAD_REQUEST).json({ success: false, message: "Rejection reason is required." });
 
     const newStatus = approved ? "Verified" : "Rejected";
 
-    // Run atomically
     await prisma.$transaction(async (tx) => {
       await tx.user.update({
         where: { id: userIdToVerify },
-        data: {
-          identityStatus: newStatus,
-          identityVerifiedBy: adminId,
-          identityVerifiedAt: new Date(),
-          identityRejectionReason: approved ? null : rejectionReason,
-        },
+        data: { identityStatus: newStatus, identityVerifiedBy: adminId, identityVerifiedAt: new Date(), identityRejectionReason: approved ? null : rejectionReason },
       });
-
-      // Dispatch alert to user
       await tx.notification.create({
-        data: {
-          userId: userIdToVerify,
-          message: approved
-            ? "Your identity verification has been approved! You can now freely request and register donations."
-            : `Your identity verification was rejected. Reason: ${rejectionReason}. Please re-upload a clear ID.`,
-        },
+        data: { userId: userIdToVerify, message: approved ? "Your identity verification has been approved!" : `Your identity verification was rejected. Reason: ${rejectionReason}.` },
       });
     });
 
-    return res.status(StatusCodes.OK).json({
-      success: true,
-      message: `User identity status updated to ${newStatus}.`,
-    });
+    // --- AUDIT LOG ---
+    await AuditService.createLogEntry(adminId, approved ? "Approved User Identity" : "Rejected User Identity", "User", approved ? "Verified National ID" : rejectionReason);
+
+    return res.status(StatusCodes.OK).json({ success: true, message: `User identity status updated to ${newStatus}.` });
   } catch (error) {
-    console.error("reviewIdentity Error:", error);
-    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      success: false,
-      message: "Verification review failed.",
-    });
+    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ success: false, message: "Verification review failed." });
   }
 };

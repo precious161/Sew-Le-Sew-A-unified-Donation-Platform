@@ -1,4 +1,5 @@
 import { registerIntent, cancelIntent, getMyIntents, verifyDonorIntent, getPendingIntents } from "../../../services/donations/donors/intentService.js";
+import * as AuditService from "../../../services/security/auditService.js";
 
 export const handleRegisterIntent = async (req, res) => {
   try {
@@ -24,28 +25,23 @@ export const handleRegisterIntent = async (req, res) => {
   }
 };
 
-// --- NEW: Admin verifies the intent ---
+
 export const handleVerifyIntent = async (req, res) => {
   try {
     const adminId = req.user.id;
     const { id } = req.params;
     const { approved, rejectionReason } = req.body;
 
-    if (typeof approved !== "boolean") {
-      return res.status(400).json({ success: false, message: "Field 'approved' must be a boolean." });
-    }
-    if (!approved && !rejectionReason) {
-      return res.status(400).json({ success: false, message: "Rejection reason is required when rejecting." });
-    }
+    if (typeof approved !== "boolean") return res.status(400).json({ success: false, message: "Field 'approved' must be a boolean." });
+    if (!approved && !rejectionReason) return res.status(400).json({ success: false, message: "Rejection reason is required when rejecting." });
 
     await verifyDonorIntent(adminId, id, { approved, rejectionReason });
 
-    return res.status(200).json({
-      success: true,
-      message: approved ? "Intent verified successfully. Engine triggered." : "Intent rejected successfully.",
-    });
+    // --- AUDIT LOG ---
+    await AuditService.createLogEntry(adminId, approved ? "Approved Donor Intent" : "Rejected Donor Intent", "DonationIntent", approved ? "Medically Cleared" : rejectionReason);
+
+    return res.status(200).json({ success: true, message: approved ? "Intent verified successfully. Engine triggered." : "Intent rejected successfully." });
   } catch (error) {
-    console.error("handleVerifyIntent Error:", error);
     return res.status(error.statusCode || 500).json({ success: false, message: error.message || "Failed to verify intent." });
   }
 };

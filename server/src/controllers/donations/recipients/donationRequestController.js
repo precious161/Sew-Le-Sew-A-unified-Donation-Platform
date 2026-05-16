@@ -1,5 +1,5 @@
-
 import * as DonationRequestService from "../../../services/donations/recipients/donationRequestService.js";
+import * as AuditService from "../../../services/security/auditService.js";
 
 // ─────────────────────────────────────────
 // Recipient: Submit a donation request
@@ -92,49 +92,16 @@ export const verifyDonationRequest = async (req, res) => {
     const { id } = req.params;
     const { approved, correctedUrgencyLevel, rejectionReason } = req.body;
 
-    if (typeof approved !== "boolean") {
-      return res.status(400).json({
-        success: false,
-        message: "Field 'approved' must be a boolean (true or false).",
-      });
-    }
+    if (typeof approved !== "boolean") return res.status(400).json({ success: false, message: "Field 'approved' must be a boolean." });
+    if (!approved && !rejectionReason) return res.status(400).json({ success: false, message: "Rejection reason is required." });
 
-    if (!approved && !rejectionReason) {
-      return res.status(400).json({
-        success: false,
-        message: "Rejection reason is required when rejecting a request.",
-      });
-    }
+    await DonationRequestService.verifyDonationRequest(adminId, id, { approved, correctedUrgencyLevel, rejectionReason });
 
-    const validUrgencyLevels = ["Low", "Medium", "High", "Critical"];
-    if (
-      correctedUrgencyLevel &&
-      !validUrgencyLevels.includes(correctedUrgencyLevel)
-    ) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid urgency level. Must be Low, Medium, High, or Critical.",
-      });
-    }
+    // --- AUDIT LOG ---
+    await AuditService.createLogEntry(adminId, approved ? "Approved Donation Request" : "Rejected Donation Request", "DonationRequest", approved ? `Verified Urgency: ${correctedUrgencyLevel || "Standard"}` : rejectionReason);
 
-    await DonationRequestService.verifyDonationRequest(adminId, id, {
-      approved,
-      correctedUrgencyLevel,
-      rejectionReason,
-    });
-
-    return res.status(200).json({
-      success: true,
-      message: approved
-        ? "Donation request approved successfully. Matching engine has been triggered."
-        : "Donation request rejected successfully. Recipient has been notified.",
-    });
+    return res.status(200).json({ success: true, message: approved ? "Donation request approved." : "Donation request rejected." });
   } catch (error) {
-    console.error("verifyDonationRequest Error:", error);
-    const status = error.statusCode || 500;
-    return res.status(status).json({
-      success: false,
-      message: error.message || "Failed to verify donation request.",
-    });
+    return res.status(error.statusCode || 500).json({ success: false, message: error.message || "Failed to verify request." });
   }
 };
