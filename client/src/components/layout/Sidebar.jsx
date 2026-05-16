@@ -4,7 +4,7 @@ import { useAuth } from '../../hooks/useAuth';
 import AuthService from '../../services/AuthService';
 import {
   LayoutDashboard, UserCircle, Heart, LogOut, ShieldAlert,
-  Users, UserPlus, Activity, ClipboardCheck, ShieldCheck
+  Users, UserPlus, Activity, ClipboardCheck, Fingerprint
 } from 'lucide-react';
 
 const Sidebar = ({ isDarkMode }) => {
@@ -32,7 +32,7 @@ const Sidebar = ({ isDarkMode }) => {
         <div className="bg-medical-red p-2.5 rounded-2xl shadow-lg">
           <Heart size={24} fill="white" className="text-white" />
         </div>
-        <span className="text-2xl font-black tracking-tighter text-white uppercase italic">
+        <span className="text-2xl font-black tracking-tighter text-white uppercase italic antialiased">
           Sew<span className="font-light italic px-0.5 text-medical-red">le</span>Sew
         </span>
       </div>
@@ -40,7 +40,7 @@ const Sidebar = ({ isDarkMode }) => {
       <nav className="flex-1 space-y-2 overflow-y-auto custom-scrollbar pr-2 text-left">
         <NavItem
           icon={isAdmin ? <ShieldAlert size={18}/> : <LayoutDashboard size={18}/>}
-          label={isAdmin ? 'Admin Portal' : 'Dashboard'}
+          label={isAdmin ? 'Admin Portal' : 'Overview'}
           active={isActive('/admin') || isActive('/dashboard')}
           onClick={() => navigate(isAdmin ? '/admin' : '/dashboard')}
         />
@@ -49,17 +49,16 @@ const Sidebar = ({ isDarkMode }) => {
         {isAdmin && (
           <>
             <div className="pt-4 pb-2 px-6 text-[9px] font-black text-white/20 uppercase tracking-[0.3em]">Registry</div>
+            <NavItem icon={<Fingerprint size={18}/>} label="ID Queue" active={isActive('/admin/identities')} onClick={() => navigate('/admin/identities')} />
             <NavItem icon={<Users size={18}/>} label="Donors" active={isActive('/admin/donors')} onClick={() => navigate('/admin/donors')} />
             <NavItem icon={<UserPlus size={18}/>} label="Recipients" active={isActive('/admin/recipients')} onClick={() => navigate('/admin/recipients')} />
-            {/* Identity verification queue from feature branch */}
-            <NavItem icon={<ShieldCheck size={18}/>} label="Identity Queue" active={isActive('/admin/identities')} onClick={() => navigate('/admin/identities')} />
           </>
         )}
 
         {/* RECIPIENT FLOW */}
         {isRecipient && (
           <>
-            <div className="pt-4 pb-2 px-6 text-[9px] font-black text-white/20 uppercase tracking-[0.3em]">Health Management</div>
+            <div className="pt-4 pb-2 px-6 text-[9px] font-black text-white/20 uppercase tracking-[0.3em]">Patient Services</div>
             <NavItem
                 icon={<Activity size={18}/>}
                 label="Medical Profile"
@@ -82,33 +81,22 @@ const Sidebar = ({ isDarkMode }) => {
           </>
         )}
 
-        {/* IDENTITY VERIFICATION — shown to all non-admin users */}
-        {!isAdmin && (
-          <>
-            <div className="pt-4 pb-2 px-6 text-[9px] font-black text-white/20 uppercase tracking-[0.3em]">Security</div>
-            <NavItem
-              icon={<ShieldCheck size={18} />}
-              label="Verify Identity"
-              active={isActive('/profile')}
-              onClick={() => navigate('/profile')}
-            />
-          </>
-        )}
+        {/* Removed redundant "Verify Identity" block here */}
 
         <div className="pt-4 border-t border-white/5 mt-4"></div>
         <NavItem icon={<UserCircle size={18}/>} label="My Profile" active={isActive('/profile')} onClick={() => navigate('/profile')} />
       </nav>
 
-      {/* User Status Card */}
+      {/* User Card */}
       <div className="pt-6 border-t border-white/5">
         <div className="flex items-center gap-4 mb-6 p-2 text-white text-left">
-          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black ${isAdmin ? 'bg-[#FFB800] text-[#111C44]' : 'bg-medical-red'}`}>
+          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black ${isAdmin ? 'bg-[#FFB800] text-[#111C44]' : (isRecipient ? 'bg-blue-600' : 'bg-medical-red')}`}>
             {user?.FirstName?.[0]}
           </div>
           <div className="overflow-hidden">
             <p className="text-sm font-black truncate leading-tight uppercase tracking-tighter">{user?.FirstName}</p>
             <p className={`text-[8px] font-black tracking-widest mt-1 text-[#05CD99] uppercase`}>
-                {isAdmin ? 'SYSTEM ADMIN' : user?.Role}
+                {user?.Role?.replace(/_/g, ' ')}
             </p>
           </div>
         </div>
