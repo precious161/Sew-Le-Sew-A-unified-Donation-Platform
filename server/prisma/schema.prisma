@@ -86,6 +86,12 @@ enum FinancialStatus {
   Failed
 }
 
+enum EventStatus {
+  Active
+  Cancelled
+  Completed
+}
+
 // ─────────────────────────────────────────
 // User Management Subsystem
 // ─────────────────────────────────────────
@@ -126,6 +132,8 @@ model User {
   identityVerifierAdmin  User?                   @relation("IdentityVerifier", fields: [identityVerifiedBy], references: [id])
   donationHistory        DonationHistory[]       @relation("DonorHistory")
   auditLogs              AuditLog[]              @relation("AdminAuditLogs")
+  createdEvents          DonationEvent[]         @relation("EventCreator")
+  attendingEvents DonationEvent[] @relation("EventAttendees")
 }
 
 model BlacklistedToken {
@@ -352,4 +360,31 @@ model FinancialContribution {
   donor           User  @relation(fields: [donorId], references: [id])
   verifiedByUser  User? @relation("FinancialVerifier", fields: [verifiedBy], references: [id])
   allocatedByUser User? @relation("FinancialAllocator", fields: [allocatedBy], references: [id])
+}
+
+// ─────────────────────────────────────────
+// Event Management Subsystem
+// ─────────────────────────────────────────
+
+model DonationEvent {
+  id          String      @id @default(uuid())
+  eventName   String
+  description String?
+  location    String      // Physical address/description
+  latitude    Float?      // Map Coordinates
+  longitude   Float?      // Map Coordinates
+
+  eventDate   DateTime    // The day of the event
+  startTime   String      // e.g., "09:00"
+  endTime     String      // e.g., "17:00"
+
+  status      EventStatus @default(Active)
+
+  createdBy   String      // The Admin who created it
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  // Relations
+  admin       User        @relation("EventCreator", fields: [createdBy], references: [id])
+  attendees   User[]   @relation("EventAttendees")
 }

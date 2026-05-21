@@ -18,6 +18,9 @@ import matchingRoutes from "./routes/matching/index.js";
 // Import Audit routes
 import auditRoutes from "./routes/security/auditRoutes.js";
 
+// Import Event routes
+import eventRoutes from "./routes/events/eventRoutes.js";
+
 dotenv.config();
 
 const app=express();
@@ -63,6 +66,9 @@ app.use("/api/matching", matchingRoutes);
 
 // Audit Routes
 app.use("/api/admin/audit", auditRoutes);
+
+// Event Route
+app.use("/api/events", eventRoutes);
 
 app.use((req,res)=>{
    res.status(StatusCodes.NOT_FOUND).json({
