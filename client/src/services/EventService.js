@@ -26,12 +26,13 @@ const EventService = {
   updateEventStatus: async (eventId, status) => {
     const response = await api.patch(`/events/${eventId}/status`, { status });
     return response.data;
-  }
-};
+  },
 
-updateEvent: async (eventId, eventData) => {
+
+  updateEvent: async (eventId, eventData) => {
     const response = await api.put(`/events/${eventId}`, eventData);
     return response.data;
-  };
+  }
+};
 
 export default EventService;

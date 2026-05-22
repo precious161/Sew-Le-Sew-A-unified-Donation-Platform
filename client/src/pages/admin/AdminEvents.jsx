@@ -4,9 +4,11 @@ import { useTheme } from '../../context/ThemeContext';
 import EventService from '../../services/EventService';
 import {
   Sun, Moon, Plus, Calendar as CalendarIcon, MapPin,
-  Clock, Users, CheckCircle, XCircle, Activity, X, Edit3
+  Clock, Users, CheckCircle, XCircle, Activity, X, Edit3, AlertTriangle
 } from 'lucide-react';
-import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
+
+// --- LEAFLET MAP IMPORTS ---
+import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
@@ -22,7 +24,8 @@ const AdminEvents = () => {
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [editingId, setEditingId] = useState(null); // <-- NEW STATE
+  const [editingId, setEditingId] = useState(null);
+  const [errorMsg, setErrorMsg] = useState("");
 
   const [formData, setFormData] = useState({
     eventName: '', description: '', location: '', eventDate: '', startTime: '', endTime: '',
@@ -39,16 +42,16 @@ const AdminEvents = () => {
 
   useEffect(() => { fetchEvents(); }, []);
 
-  // Open modal for NEW event
   const openCreateModal = () => {
     setEditingId(null);
+    setErrorMsg("");
     setFormData({ eventName: '', description: '', location: '', eventDate: '', startTime: '', endTime: '', latitude: 9.03, longitude: 38.74 });
     setIsModalOpen(true);
   };
 
-  // Open modal for EDITING event
   const openEditModal = (event) => {
     setEditingId(event.id);
+    setErrorMsg("");
     setFormData({
       eventName: event.eventName,
       description: event.description || '',
@@ -65,6 +68,7 @@ const AdminEvents = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
+    setErrorMsg("");
     try {
       if (editingId) {
         await EventService.updateEvent(editingId, formData);
@@ -73,7 +77,15 @@ const AdminEvents = () => {
       }
       setIsModalOpen(false);
       fetchEvents();
-    } catch (error) { console.error("Failed to save event", error); }
+    } catch (error) {
+      // If it's a Zod validation error from the backend, show the exact error field
+      const apiError = error.response?.data;
+      if (apiError?.errors && apiError.errors.length > 0) {
+        setErrorMsg(apiError.errors[0].message); // Shows Zod error (e.g. "End time must be after start time")
+      } else {
+        setErrorMsg(apiError?.message || "An error occurred while saving the event.");
+      }
+    }
     finally { setSubmitting(false); }
   };
 
@@ -93,7 +105,7 @@ const AdminEvents = () => {
              <div className="w-2 h-2 rounded-full bg-[#FFB800] animate-pulse"></div>
              <h2 className={`text-[10px] font-black uppercase tracking-[0.4em] ${isDarkMode ? 'text-white/30' : 'text-gray-400'}`}>System Hub • Event Coordination</h2>
           </div>
-          <button onClick={toggleTheme} className="p-3 rounded-2xl bg-white dark:bg-white/5 border border-gray-100 dark:border-white/10 shadow-lg">
+          <button onClick={toggleTheme} className="p-3 rounded-2xl bg-white dark:bg-white/5 border border-gray-100 dark:border-white/10 shadow-lg hover:scale-110 transition-all">
             {isDarkMode ? <Sun size={20} className="text-yellow-400" /> : <Moon size={20} className="text-[#111C44]" />}
           </button>
         </header>
@@ -106,13 +118,13 @@ const AdminEvents = () => {
                 <h1 className={`text-4xl font-black italic tracking-tighter uppercase ${isDarkMode ? 'text-white' : 'text-[#111C44]'}`}>Event Registry</h1>
               </div>
             </div>
-            <button onClick={openCreateModal} className="bg-medical-red hover:bg-red-700 text-white px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl flex items-center gap-2">
+            <button onClick={openCreateModal} className="bg-medical-red hover:bg-red-700 text-white px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl flex items-center gap-2 transition-all">
               <Plus size={16} /> Deploy Campaign
             </button>
           </div>
 
           {loading ? ( <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-medical-red"></div></div> )
-          : events.length === 0 ? ( <div className="p-16 text-center border-2 border-dashed border-gray-200 rounded-[40px]"><p className="text-gray-400 font-black uppercase">No events deployed.</p></div> )
+          : events.length === 0 ? ( <div className="p-16 text-center border-2 border-dashed border-gray-200 dark:border-white/10 rounded-[40px]"><p className="text-gray-400 font-black uppercase">No events deployed.</p></div> )
           : (
              <div className="grid gap-6">
                {events.map((event) => (
@@ -126,11 +138,11 @@ const AdminEvents = () => {
                        <span className="flex items-center gap-1"><CalendarIcon size={12}/> {new Date(event.eventDate).toLocaleDateString()}</span>
                        <span className="flex items-center gap-1"><Clock size={12}/> {event.startTime} - {event.endTime}</span>
                        <span className="flex items-center gap-1"><MapPin size={12}/> {event.location}</span>
+                       <span className="flex items-center gap-1"><Users size={12}/> {event._count?.attendees || 0} RSVP'd</span>
                      </div>
                    </div>
                    {event.status === 'Active' && (
                      <div className="flex items-center gap-3 w-full lg:w-auto">
-                       {/* THE NEW EDIT BUTTON */}
                        <button onClick={() => openEditModal(event)} className="px-6 py-3 rounded-2xl bg-gray-500/10 text-gray-500 font-black text-[9px] uppercase tracking-widest flex items-center gap-2 hover:bg-gray-600 hover:text-white transition-all"><Edit3 size={14} /> Edit</button>
                        <button onClick={() => handleStatusChange(event.id, 'Completed')} className="px-6 py-3 rounded-2xl bg-blue-500/10 text-blue-500 font-black text-[9px] uppercase tracking-widest flex items-center gap-2 hover:bg-blue-600 hover:text-white transition-all"><CheckCircle size={14} /> Complete</button>
                        <button onClick={() => handleStatusChange(event.id, 'Cancelled')} className="px-6 py-3 rounded-2xl bg-red-500/10 text-red-500 font-black text-[9px] uppercase tracking-widest flex items-center gap-2 hover:bg-medical-red hover:text-white transition-all"><XCircle size={14} /> Cancel</button>
@@ -147,10 +159,17 @@ const AdminEvents = () => {
       {isModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm overflow-y-auto">
           <div className={`w-full max-w-2xl p-10 rounded-[45px] shadow-2xl relative border my-10 ${isDarkMode ? 'bg-[#0b1121] border-white/10' : 'bg-white border-gray-100'}`}>
-            <button onClick={() => setIsModalOpen(false)} className="absolute top-8 right-8 text-gray-400"><X size={24} /></button>
+            <button onClick={() => setIsModalOpen(false)} className="absolute top-8 right-8 text-gray-400 hover:text-medical-red transition-colors"><X size={24} /></button>
             <h2 className={`text-3xl font-black italic tracking-tighter uppercase mb-6 ${isDarkMode ? 'text-white' : 'text-[#1B2559]'}`}>
               {editingId ? "Update Campaign" : "Create Campaign"}
             </h2>
+
+            {errorMsg && (
+              <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center gap-3 text-red-500">
+                <AlertTriangle size={18} />
+                <p className="text-[10px] font-black uppercase tracking-widest">{errorMsg}</p>
+              </div>
+            )}
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
@@ -178,17 +197,18 @@ const AdminEvents = () => {
                 </div>
               </div>
 
+              {/* FIXED: NOW USING MAPWRAPPER INSTEAD OF LOCATIONPICKER */}
               <div className="space-y-1">
                 <label className="text-[9px] font-black text-medical-red ml-2 uppercase flex items-center gap-1"><MapPin size={10}/> Exact Location</label>
-                <div className="h-56 w-full rounded-[25px] overflow-hidden shadow-inner border border-gray-200 dark:border-white/10">
-                  <LocationPicker
+                <div className="h-56 w-full rounded-[25px] overflow-hidden shadow-inner border border-gray-200 dark:border-white/10 relative">
+                  <MapWrapper
                     defaultPosition={[formData.latitude, formData.longitude]}
                     onLocationSelect={(lat, lng) => setFormData({...formData, latitude: lat, longitude: lng})}
                   />
                 </div>
               </div>
 
-              <button disabled={submitting} type="submit" className="w-full bg-[#111C44] dark:bg-white text-white dark:text-[#111C44] py-5 rounded-3xl font-black text-xs uppercase tracking-[0.3em] shadow-xl mt-4">
+              <button disabled={submitting} type="submit" className="w-full bg-[#111C44] dark:bg-white text-white dark:text-[#111C44] py-5 rounded-3xl font-black text-xs uppercase tracking-[0.3em] shadow-xl mt-4 hover:scale-[1.02] transition-transform">
                 {submitting ? 'Saving...' : (editingId ? 'Update Network' : 'Deploy to Network')}
               </button>
             </form>
@@ -199,12 +219,22 @@ const AdminEvents = () => {
   );
 };
 
+// --- CORE MAP LOGIC ---
 const LocationPicker = ({ defaultPosition, onLocationSelect }) => {
   const [position, setPosition] = useState(defaultPosition);
   const markerRef = useRef(null);
+  const map = useMap();
 
-  // Update map pin if defaultPosition changes (like when clicking Edit)
-  useEffect(() => { setPosition(defaultPosition); }, [defaultPosition]);
+  // Modal map resizing fix
+  useEffect(() => {
+    setTimeout(() => { map.invalidateSize(); }, 100);
+  }, [map]);
+
+  // Update pin when changing events
+  useEffect(() => {
+    setPosition(defaultPosition);
+    map.setView(defaultPosition);
+  }, [defaultPosition, map]);
 
   const MapEvents = () => {
     useMapEvents({
@@ -228,13 +258,23 @@ const LocationPicker = ({ defaultPosition, onLocationSelect }) => {
     }), [onLocationSelect]);
 
   return (
-    <div className="relative h-full w-full">
-      <MapContainer center={defaultPosition} zoom={13} scrollWheelZoom={true} style={{ height: '100%', width: '100%', zIndex: 0 }}>
-        <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-        <MapEvents />
-        <Marker draggable={true} eventHandlers={eventHandlers} position={position} ref={markerRef} />
-      </MapContainer>
-    </div>
+    <>
+      <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[400] bg-[#111C44]/90 backdrop-blur-md text-white text-[9px] font-black uppercase tracking-widest px-6 py-2 rounded-full shadow-lg pointer-events-none text-center">
+        Click map or drag pin
+      </div>
+      <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+      <MapEvents />
+      <Marker draggable={true} eventHandlers={eventHandlers} position={position} ref={markerRef} />
+    </>
+  );
+};
+
+
+const MapWrapper = (props) => {
+  return (
+    <MapContainer center={props.defaultPosition} zoom={13} scrollWheelZoom={true} style={{ height: '100%', width: '100%', zIndex: 0 }}>
+      <LocationPicker {...props} />
+    </MapContainer>
   );
 };
 
