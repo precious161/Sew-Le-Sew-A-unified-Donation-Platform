@@ -134,6 +134,10 @@ model User {
   auditLogs              AuditLog[]              @relation("AdminAuditLogs")
   createdEvents          DonationEvent[]         @relation("EventCreator")
   attendingEvents DonationEvent[] @relation("EventAttendees")
+  @@index([Role])
+  @@index([status])
+  @@index([identityStatus])
+  @@index([createdAt])
 }
 
 model BlacklistedToken {
@@ -282,6 +286,10 @@ model DonationRequest {
   user           User          @relation(fields: [recipientId], references: [id])
   verifiedByUser User?         @relation("RequestVerifier", fields: [verifiedBy], references: [id])
   matches        Match[]
+  @@index([status])
+  @@index([donationType])
+  @@index([urgencyLevel])
+  @@index([recipientId, status])
 }
 
 model DonationHistory {
@@ -331,6 +339,9 @@ model Match {
 
   @@unique([requestId, status])
 donationHistory DonationHistory?
+ @@index([intentId])
+  @@index([requestId])
+  @@index([status])
 }
 
 
@@ -387,4 +398,6 @@ model DonationEvent {
   // Relations
   admin       User        @relation("EventCreator", fields: [createdBy], references: [id])
   attendees   User[]   @relation("EventAttendees")
+  @@index([eventDate])
+  @@index([status])
 }
