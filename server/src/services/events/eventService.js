@@ -118,3 +118,43 @@ export const rsvpToEvent = async (eventId, donorId) => {
     });
   }
 };
+
+// ── ADMIN: Full Event Update & Auto-Notify RSVP'd Donors ──
+export const updateEventDetails = async (eventId, data) => {
+  const { eventName, description, location, latitude, longitude, eventDate, startTime, endTime } = data;
+
+  // 1. Get the existing event to find out who has RSVP'd
+  const existingEvent = await prisma.donationEvent.findUnique({
+    where: { id: eventId },
+    include: { attendees: { select: { id: true } } }
+  });
+
+  if (!existingEvent) throw new Error("Event not found.");
+
+  // 2. Update the event in the database
+  const updatedEvent = await prisma.donationEvent.update({
+    where: { id: eventId },
+    data: {
+      eventName,
+      description,
+      location,
+      latitude,
+      longitude,
+      eventDate: eventDate ? new Date(eventDate) : existingEvent.eventDate,
+      startTime,
+      endTime,
+    },
+  });
+
+  // 3. AUTOMATION: Notify ONLY the donors who already RSVP'd!
+  if (existingEvent.attendees.length > 0) {
+    const notifications = existingEvent.attendees.map(donor => ({
+      userId: donor.id,
+      message: `UPDATE: The blood drive "${updatedEvent.eventName}" has changed details. It is now at ${updatedEvent.location} from ${updatedEvent.startTime}. Please check your map!`,
+    }));
+
+    await prisma.notification.createMany({ data: notifications });
+  }
+
+  return updatedEvent;
+};
