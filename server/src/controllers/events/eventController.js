@@ -70,3 +70,24 @@ export const handleRSVP = async (req, res) => {
     return res.status(StatusCodes.BAD_REQUEST).json({ success: false, message: error.message });
   }
 };
+
+export const handleUpdateEventDetails = async (req, res) => {
+  try {
+    const adminId = req.user.id;
+    const { id } = req.params;
+
+    const updatedEvent = await EventService.updateEventDetails(id, req.body);
+
+    // --- AUDIT LOG ---
+    await AuditService.createLogEntry(adminId, "Updated Event Details", "DonationEvent", `Event ID: ${id}`);
+
+    return res.status(StatusCodes.OK).json({
+      success: true,
+      message: "Event updated and attendees notified!",
+      data: updatedEvent
+    });
+  } catch (error) {
+    console.error("handleUpdateEventDetails Error:", error);
+    return res.status(StatusCodes.BAD_REQUEST).json({ success: false, message: error.message });
+  }
+};
