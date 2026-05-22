@@ -52,6 +52,15 @@ const Sidebar = ({ isDarkMode }) => {
           <>
             <div className="pt-4 pb-2 px-6 text-[9px] font-black text-white/20 uppercase tracking-[0.3em]">System Hub</div>
             <NavItem icon={<FileText size={18}/>} label="Request Queue" active={isActive('/admin/requests')} onClick={() => navigate('/admin/requests')} />
+            
+            {/* ADDED: New Intent Queue link */}
+            <NavItem 
+              icon={<HeartPulse size={18}/>} 
+              label="Intent Queue" 
+              active={isActive('/admin/intents')} 
+              onClick={() => navigate('/admin/intents')} 
+            />
+
             <NavItem icon={<Fingerprint size={18}/>} label="Identity Queue" active={isActive('/admin/identities')} onClick={() => navigate('/admin/identities')} />
             <NavItem icon={<Users size={18}/>} label="Donor Registry" active={isActive('/admin/donors')} onClick={() => navigate('/admin/donors')} />
             <NavItem icon={<UserPlus size={18}/>} label="Recipient Registry" active={isActive('/admin/recipients')} onClick={() => navigate('/admin/recipients')} />
@@ -67,12 +76,6 @@ const Sidebar = ({ isDarkMode }) => {
                 label="Medical Profile"
                 active={isActive('/donations/recipient/health-info')}
                 onClick={() => navigate('/donations/recipient/health-info')}
-            />
-            <NavItem
-                icon={<History size={18}/>}
-                label="My Requests"
-                active={isActive('/recipient/my-requests')}
-                onClick={() => navigate('/recipient/my-requests')}
             />
           </>
         )}
@@ -93,6 +96,12 @@ const Sidebar = ({ isDarkMode }) => {
               active={isActive('/donations/donor/register-intent')}
               onClick={() => navigate('/donations/donor/register-intent')}
             />
+            <NavItem
+              icon={<History size={18}/>}
+              label="Donation History"
+              active={isActive('/donations/donor/history')}
+              onClick={() => navigate('/donations/donor/history')}
+            />
           </>
         )}
 
@@ -102,7 +111,7 @@ const Sidebar = ({ isDarkMode }) => {
 
       {/* 3. USER STATUS CARD */}
       <div className="pt-6 border-t border-white/5">
-        <div className="flex items-center gap-4 mb-6 p-2 text-white text-left text-left">
+        <div className="flex items-center gap-4 mb-6 p-2 text-white text-left">
           <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black shadow-lg transition-all ${
             isAdmin ? 'bg-[#FFB800] text-[#111C44]' : (isRecipient ? 'bg-blue-600 shadow-blue-500/20' : 'bg-medical-red shadow-red-900/40')
           }`}>
@@ -123,7 +132,6 @@ const Sidebar = ({ isDarkMode }) => {
   );
 };
 
-// NavItem sub-component for clean rendering
 const NavItem = ({ icon, label, active, onClick }) => (
   <button
     onClick={onClick}
