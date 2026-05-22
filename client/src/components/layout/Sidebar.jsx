@@ -52,10 +52,11 @@ const Sidebar = ({ isDarkMode }) => {
           <>
             <div className="pt-4 pb-2 px-6 text-[9px] font-black text-white/20 uppercase tracking-[0.3em]">System Hub</div>
             <NavItem icon={<FileText size={18}/>} label="Request Queue" active={isActive('/admin/requests')} onClick={() => navigate('/admin/requests')} />
+            <NavItem icon={<HeartPulse size={18}/>} label="Intent Queue" active={isActive('/admin/intents')} onClick={() => navigate('/admin/intents')} />
             <NavItem icon={<Fingerprint size={18}/>} label="Identity Queue" active={isActive('/admin/identities')} onClick={() => navigate('/admin/identities')} />
             <NavItem icon={<Users size={18}/>} label="Donor Registry" active={isActive('/admin/donors')} onClick={() => navigate('/admin/donors')} />
             <NavItem icon={<UserPlus size={18}/>} label="Recipient Registry" active={isActive('/admin/recipients')} onClick={() => navigate('/admin/recipients')} />
-            <NavItem icon={<Calendar size={18}/>} label="Donation Drives" active={isActive('/admin/events')} onClick={() => navigate('/admin/events')} />
+            <NavItem icon={<Calendar size={18}/>} label="Manage Drives" active={isActive('/admin/events')} onClick={() => navigate('/admin/events')} />
           </>
         )}
 
@@ -68,12 +69,6 @@ const Sidebar = ({ isDarkMode }) => {
                 label="Medical Profile"
                 active={isActive('/donations/recipient/health-info')}
                 onClick={() => navigate('/donations/recipient/health-info')}
-            />
-            <NavItem
-                icon={<History size={18}/>}
-                label="My Requests"
-                active={isActive('/recipient/my-requests')}
-                onClick={() => navigate('/recipient/my-requests')}
             />
           </>
         )}
@@ -96,9 +91,15 @@ const Sidebar = ({ isDarkMode }) => {
             />
             <NavItem
               icon={<Calendar size={18}/>}
-              label="Donation Drives"
+              label="Upcoming Drives"
               active={isActive('/donations/donor/events')}
               onClick={() => navigate('/donations/donor/events')}
+            />
+            <NavItem
+              icon={<History size={18}/>}
+              label="Donation History"
+              active={isActive('/donations/donor/history')}
+              onClick={() => navigate('/donations/donor/history')}
             />
           </>
         )}
@@ -130,7 +131,6 @@ const Sidebar = ({ isDarkMode }) => {
   );
 };
 
-// NavItem sub-component for clean rendering
 const NavItem = ({ icon, label, active, onClick }) => (
   <button
     onClick={onClick}

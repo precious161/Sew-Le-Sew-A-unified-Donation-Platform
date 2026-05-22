@@ -16,6 +16,7 @@ const DonationService = {
         });
         return response.data;
     },
+    // Matches Feyruza's route typo: /my-histoy
     getDonationHistory: async () => {
         const response = await api.get('/donations/donors/history/my-histoy');
         return response.data;
@@ -46,19 +47,14 @@ const DonationService = {
         const response = await api.get(`/donations/recipient/requests/pending-verification?page=${page}`);
         return response.data;
     },
-
-    // THIS IS THE FUNCTION THAT WAS MISSING
     verifyRequest: async (requestId, decisionData) => {
-        // Feyruza's route: router.patch("/requests/:id/verify", ...)
         const response = await api.patch(`/donations/recipient/requests/${requestId}/verify`, decisionData);
         return response.data;
     },
-
     getPendingIntents: async (page = 1) => {
         const response = await api.get(`/donations/donor/pending?page=${page}`);
         return response.data;
     },
-
     verifyDonorIntent: async (intentId, decisionData) => {
         const response = await api.patch(`/donations/donor/${intentId}/verify`, decisionData);
         return response.data;

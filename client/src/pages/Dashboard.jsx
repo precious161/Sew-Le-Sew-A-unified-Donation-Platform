@@ -3,13 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../context/ThemeContext';
 import Sidebar from '../components/layout/Sidebar';
+import NotificationHub from '../components/notifications/NotificationHub'; // RESTORED
 import DonationService from '../services/DonationService';
 import ProfileService from '../services/ProfileService';
-import EventService from '../services/EventService'; // <--- NEW IMPORT
+import EventService from '../services/EventService'; 
 import {
   Sun, Moon, ShieldCheck, Activity, Plus, Heart, Lock,
   CheckCircle, Clock, Search, HeartPulse, ArrowRight,
-  MapPin, Users, Calendar // <--- ADDED EVENT ICONS
+  MapPin, Users, Calendar
 } from 'lucide-react';
 
 const Dashboard = () => {
@@ -24,7 +25,7 @@ const Dashboard = () => {
     passedQuiz: false
   });
   const [activeRequests, setActiveRequests] = useState([]);
-  const [events, setEvents] = useState([]); // <--- NEW STATE FOR EVENTS
+  const [events, setEvents] = useState([]);
 
   const fetchEventsData = async () => {
     try {
@@ -45,23 +46,23 @@ const Dashboard = () => {
         const isRecipient = user?.Role === 'Recipient';
         const isDonor = user?.Role === 'Donor';
 
-        // Parallel fetch for all registry parameters + Events for Donors
         const [pRes, hRes, reqRes, quizRes, eventsRes] = await Promise.all([
           ProfileService.getMe(),
           DonationService.getHealthInfo().catch(() => ({ success: false })),
           isRecipient ? DonationService.getMyRequests().catch(() => ({ success: false, data: [] })) : Promise.resolve({ data: [] }),
           isDonor ? DonationService.getEligibilityHistory().catch(() => ({ success: false, data: [] })) : Promise.resolve({ data: [] }),
-          isDonor ? EventService.getPublicEvents().catch(() => ({ success: false, data: [] })) : Promise.resolve({ data: [] }) // <--- FETCH EVENTS
+          isDonor ? EventService.getPublicEvents().catch(() => ({ success: false, data: [] })) : Promise.resolve({ data: [] })
         ]);
 
         setStatus({
           identity: pRes.data?.identityStatus || 'Unverified',
-          hasHealthData: hRes.success === true && hRes.data !== null,
+          // Fix: Ensure we check for actual data within the object
+          hasHealthData: hRes.success === true && hRes.data && Object.keys(hRes.data).length > 0 && hRes.data.bloodType,
           passedQuiz: quizRes.data?.length > 0 && quizRes.data[0].isEligible
         });
 
         if (reqRes.success && reqRes.data) setActiveRequests(reqRes.data);
-        if (eventsRes.success && eventsRes.data) setEvents(eventsRes.data); // <--- SET EVENTS
+        if (eventsRes.success && eventsRes.data) setEvents(eventsRes.data);
 
       } catch (err) {
         console.error("Dashboard Sync Failed", err);
@@ -76,7 +77,7 @@ const Dashboard = () => {
   const handleRSVP = async (eventId) => {
     try {
       await EventService.rsvpToEvent(eventId);
-      fetchEventsData(); // Refresh just the events after RSVP
+      fetchEventsData(); 
     } catch (error) {
       console.error("Failed to RSVP", error);
     }
@@ -93,7 +94,6 @@ const Dashboard = () => {
   const isVerified = status.identity === 'Verified';
   const isRecipient = user.Role === 'Recipient';
   const isDonor = user.Role === 'Donor';
-
   const canProceed = isVerified && (isRecipient ? status.hasHealthData : status.passedQuiz);
 
   const getProgressStep = (reqStatus) => {
@@ -111,36 +111,50 @@ const Dashboard = () => {
       <main className="flex-1 ml-72 p-10 flex flex-col text-left">
         <header className="flex justify-between items-center mb-12">
           <div className="flex items-center gap-3">
-             <div className={`w-2 h-2 rounded-full animate-pulse ${canProceed ? 'bg-green-500' : 'bg-blue-600'}`}></div>
+             <div className={`w-2 h-2 rounded-full animate-pulse ${canProceed ? 'bg-blue-400' : 'bg-gray-600'}`}></div>
              <h2 className={`text-[10px] font-black uppercase tracking-[0.4em] ${isDarkMode ? 'text-white/30' : 'text-gray-400'}`}>
                 {isRecipient ? 'Recipient Coordination Node' : 'Donor Portal • Registry Node'}
              </h2>
           </div>
-          <button onClick={toggleTheme} className="p-3 rounded-2xl bg-white dark:bg-white/5 border border-gray-100 dark:border-white/10 shadow-lg hover:scale-110 transition-all">
-            {isDarkMode ? <Sun size={20} className="text-yellow-400" /> : <Moon size={20} className="text-[#111C44]" />}
-          </button>
+          
+          <div className="flex items-center gap-4">
+            <NotificationHub isDarkMode={isDarkMode} />
+            <button onClick={toggleTheme} className="p-3 rounded-2xl bg-white dark:bg-white/5 border border-gray-100 dark:border-white/10 shadow-lg hover:scale-110 transition-all">
+                {isDarkMode ? <Sun size={20} className="text-yellow-400" /> : <Moon size={20} className="text-[#111C44]" />}
+            </button>
+          </div>
         </header>
 
         <div className="flex-1 max-w-6xl w-full mx-auto animate-in fade-in duration-1000 pb-10">
 
-           {/* BANNER SECTION */}
-           <div className={`rounded-[60px] p-16 shadow-2xl text-white relative overflow-hidden transition-all duration-700 ${
-             canProceed ? 'bg-blue-600 shadow-blue-900/30' : 'bg-[#111C44]'
+           {/* BANNER SECTION: RESTORED TRANSPARENT BLUE-BLACK THEME */}
+           <div className={`rounded-[60px] p-16 shadow-2xl text-white relative overflow-hidden transition-all duration-700 border ${
+             canProceed 
+              ? 'bg-[#111C44]/40 backdrop-blur-2xl border-blue-500/20 shadow-blue-900/20' 
+              : 'bg-[#111C44] border-transparent'
            }`}>
                 <div className="relative z-10">
                   <h2 className="text-7xl font-black italic tracking-tighter leading-none">
                     Welcome, <br /> {user?.FirstName}!
                   </h2>
                   <div className="flex gap-4 mt-8">
-                     <StatusBadge active={isVerified} label={isVerified ? "ID Verified" : "Identity Missing"} />
+                     {/* RESTORED CONTEXTUAL IDENTITY LOGIC */}
+                     <StatusBadge 
+                        active={status.identity === 'Verified'} 
+                        variant={status.identity === 'Pending' ? 'warning' : 'danger'}
+                        label={
+                          status.identity === 'Verified' ? "ID Verified" : 
+                          status.identity === 'Pending' ? "ID Under Review" : "Identity Missing"
+                        } 
+                     />
                      {isRecipient && <StatusBadge active={status.hasHealthData} label={status.hasHealthData ? "Medical Profile Synced" : "Medical Missing"} />}
                      {isDonor && <StatusBadge active={status.passedQuiz} label={status.passedQuiz ? "Quiz Passed" : "Quiz Pending"} />}
                   </div>
                 </div>
-                <ShieldCheck size={280} className="absolute -right-20 -bottom-20 opacity-5" />
+                <ShieldCheck size={280} className={`absolute -right-20 -bottom-20 transition-opacity duration-700 ${canProceed ? 'opacity-10 text-blue-400' : 'opacity-5'}`} />
            </div>
 
-           {/* ACTIVE REQUESTS TIMELINE (For Patients) */}
+           {/* ACTIVE REQUESTS TIMELINE */}
            {isRecipient && activeRequests.length > 0 && (
              <div className="mb-12 space-y-6 mt-12">
                 <h3 className="text-xl font-black tracking-tighter uppercase italic text-[#111C44] dark:text-white mb-4">Live Request Tracking</h3>
@@ -179,9 +193,7 @@ const Dashboard = () => {
                     onClick={() => navigate(isRecipient ? '/donations/recipient/health-info' : '/donations/donor/check')}
                     className={`p-10 rounded-[55px] text-left border transition-all ${isDarkMode ? 'bg-white/5 border-white/5 text-white hover:bg-white/10' : 'bg-white border-gray-100 text-[#111C44] shadow-xl shadow-gray-200/50 hover:-translate-y-1'}`}
                 >
-                    <div className="p-4 bg-medical-red/10 rounded-2xl w-fit mb-6 text-medical-red">
-                      <Activity size={28}/>
-                    </div>
+                    <div className="p-4 bg-blue-500/10 rounded-2xl w-fit mb-6 text-blue-500"><Activity size={28}/></div>
                     <h3 className="text-2xl font-black tracking-tighter uppercase italic mb-2">
                       1. {isRecipient ? 'Medical Profile' : 'Eligibility Quiz'}
                     </h3>
@@ -205,69 +217,41 @@ const Dashboard = () => {
                       2. {isRecipient ? 'Support Request' : 'Register Intent'}
                     </h3>
                     <p className="text-xs text-gray-400 font-medium italic leading-relaxed">
-                        {canProceed
-                          ? "Authorized access. Submit your entry to the registry."
-                          : "Finish Step 1 and verify Identity to unlock."}
+                        {canProceed ? "Authorized access. Submit your entry to the registry." : "Finish Step 1 and verify Identity to unlock."}
                     </p>
-                    {canProceed && <ArrowRight className="absolute bottom-10 right-10 text-blue-600 opacity-0 group-hover:opacity-100 group-hover:translate-x-2 transition-all" size={32} />}
+                    {canProceed && <ArrowRight className="absolute bottom-10 right-10 text-blue-400 opacity-0 group-hover:opacity-100 group-hover:translate-x-2 transition-all" size={32} />}
                 </button>
            </div>
 
-           {/* ── DONOR: UPCOMING EVENTS SECTION ── */}
+           {/* ── DONOR: UPCOMING EVENTS SECTION (FEYRUZA) ── */}
            {isDonor && events.length > 0 && (
              <div className="mt-16 animate-in fade-in slide-in-from-bottom-10 duration-1000">
                 <div className="flex items-center gap-3 mb-6">
-                   <div className="bg-medical-red p-2 rounded-xl text-white">
-                      <Calendar size={20} />
-                   </div>
-                   <h3 className="text-2xl font-black tracking-tighter uppercase italic text-[#111C44] dark:text-white">
-                     Active Donation Drives
-                   </h3>
+                   <div className="bg-blue-600 p-2 rounded-xl text-white"><Calendar size={20} /></div>
+                   <h3 className="text-2xl font-black tracking-tighter uppercase italic text-[#111C44] dark:text-white">Active Donation Drives</h3>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   {events.map((event) => {
                     const isAttending = event.attendees.some(a => a.id === user.id);
                     const dateObj = new Date(event.eventDate);
-
                     return (
-                      <div key={event.id} className={`p-6 rounded-[35px] border shadow-xl flex flex-col justify-between transition-all ${
-                        isAttending
-                          ? 'bg-medical-red/5 border-medical-red/30 dark:bg-medical-red/10'
-                          : 'bg-white dark:bg-white/5 border-gray-100 dark:border-white/5 hover:border-medical-red'
-                      }`}>
+                      <div key={event.id} className={`p-6 rounded-[35px] border shadow-xl flex flex-col justify-between transition-all ${isAttending ? 'bg-blue-500/5 border-blue-500/30 dark:bg-blue-500/10' : 'bg-white dark:bg-white/5 border-gray-100 dark:border-white/5 hover:border-blue-500'}`}>
                         <div>
-                          <div className="flex justify-between items-start mb-4">
-                            <h4 className="font-black text-lg text-[#1B2559] dark:text-white uppercase italic pr-4">
-                              {event.eventName}
-                            </h4>
-                            <div className={`w-14 h-14 shrink-0 rounded-2xl flex flex-col items-center justify-center font-black shadow-md ${isAttending ? 'bg-medical-red text-white' : 'bg-[#111C44] text-white'}`}>
+                          <div className="flex justify-between items-start mb-4 text-left">
+                            <h4 className="font-black text-lg text-[#1B2559] dark:text-white uppercase italic pr-4">{event.eventName}</h4>
+                            <div className={`w-14 h-14 shrink-0 rounded-2xl flex flex-col items-center justify-center font-black shadow-md ${isAttending ? 'bg-blue-600 text-white' : 'bg-[#111C44] text-white'}`}>
                               <span className="text-[9px] uppercase text-white/60 -mb-1">{dateObj.toLocaleString('en-US', { month: 'short' })}</span>
                               <span className="text-xl">{dateObj.getDate()}</span>
                             </div>
                           </div>
-
-                          <div className="space-y-2 mb-6">
-                            <p className="text-[10px] font-bold uppercase text-gray-400 flex items-center gap-2 tracking-widest">
-                              <MapPin size={12} className="text-medical-red" /> {event.location}
-                            </p>
-                            <p className="text-[10px] font-bold uppercase text-gray-400 flex items-center gap-2 tracking-widest">
-                              <Clock size={12} className="text-blue-500" /> {event.startTime} - {event.endTime}
-                            </p>
-                            <p className="text-[10px] font-bold uppercase text-gray-400 flex items-center gap-2 tracking-widest">
-                              <Users size={12} className="text-green-500" /> {event._count.attendees} Responded
-                            </p>
+                          <div className="space-y-2 mb-6 text-left">
+                            <p className="text-[10px] font-bold uppercase text-gray-400 flex items-center gap-2 tracking-widest"><MapPin size={12} className="text-blue-500" /> {event.location}</p>
+                            <p className="text-[10px] font-bold uppercase text-gray-400 flex items-center gap-2 tracking-widest"><Clock size={12} className="text-blue-500" /> {event.startTime} - {event.endTime}</p>
+                            <p className="text-[10px] font-bold uppercase text-gray-400 flex items-center gap-2 tracking-widest"><Users size={12} className="text-green-500" /> {event._count.attendees} Responded</p>
                           </div>
                         </div>
-
-                        <button
-                          onClick={() => handleRSVP(event.id)}
-                          className={`w-full py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${
-                            isAttending
-                              ? 'bg-white dark:bg-[#111C44] text-medical-red border border-medical-red/20 shadow-sm hover:bg-medical-red hover:text-white'
-                              : 'bg-medical-red text-white shadow-xl shadow-red-900/20 hover:bg-red-700'
-                          }`}
-                        >
+                        <button onClick={() => handleRSVP(event.id)} className={`w-full py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${isAttending ? 'bg-white dark:bg-[#111C44] text-blue-600 border border-blue-500/20 shadow-sm hover:bg-blue-600 hover:text-white' : 'bg-blue-600 text-white shadow-xl shadow-blue-900/20 hover:bg-blue-700'}`}>
                           {isAttending ? <><CheckCircle size={14} /> Cancel RSVP</> : <><Plus size={14} /> RSVP Now</>}
                         </button>
                       </div>
@@ -288,9 +272,13 @@ const Dashboard = () => {
 
 // --- HELPER UI ---
 
-const StatusBadge = ({ active, label }) => (
+const StatusBadge = ({ active, label, variant }) => (
     <div className={`px-4 py-1.5 rounded-full border text-[9px] font-black uppercase tracking-widest transition-all ${
-        active ? 'bg-green-500/20 border-green-500/30 text-green-400' : 'bg-red-500/10 border-red-500/30 text-red-400 animate-pulse'
+        active 
+          ? 'bg-green-500/20 border-green-500/30 text-green-400' 
+          : variant === 'warning'
+          ? 'bg-blue-500/20 border-blue-500/30 text-blue-400 animate-pulse'
+          : 'bg-red-500/10 border-red-500/30 text-red-400'
     }`}>
         {label}
     </div>
@@ -301,7 +289,7 @@ const ProgressNode = ({ active, icon, label }) => (
     <div className={`w-10 h-10 rounded-full flex items-center justify-center border-4 transition-all duration-500 ${active ? 'bg-blue-600 border-white text-white shadow-lg shadow-blue-500/40' : 'bg-gray-100 dark:bg-[#0b1121] border-gray-200 dark:border-white/10 text-gray-400'}`}>
       {active ? <CheckCircle size={16} /> : icon}
     </div>
-    <span className={`text-[9px] font-black uppercase tracking-widest text-center w-24 ${active ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-600'}`}>{label}</span>
+    <span className={`text-[9px] font-black uppercase tracking-widest text-center w-24 ${active ? 'text-blue-600' : 'text-gray-400 dark:text-gray-600'}`}>{label}</span>
   </div>
 );
 

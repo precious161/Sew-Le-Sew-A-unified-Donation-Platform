@@ -21,16 +21,17 @@ import AdminRecipients from './pages/admin/AdminRecipients';
 import AdminIdentities from './pages/admin/AdminIdentities';
 import RequestVerification from './pages/admin/RequestVerification';
 import AdminEvents from './pages/admin/AdminEvents';
+import IntentVerification from './pages/admin/IntentVerification'; 
 
 // Recipient Subsystem
 import HealthInfo from './pages/donations/recipient/HealthInfo';
 import CreateRequest from './pages/donations/recipient/CreateRequest';
-import MyRequests from './pages/donations/recipient/MyRequests';
 
 // Donor Subsystem
 import EligibilityQuiz from './pages/donations/donor/EligibilityQuiz';
 import RegisterIntent from './pages/donations/donor/RegisterIntent';
 import DonorEvents from './pages/donations/donor/DonorEvents';
+import DonationHistory from './pages/donations/donor/DonationHistory'; // RESTORED
 
 const HomeRedirect = () => {
   const { user } = useAuth();
@@ -56,11 +57,11 @@ function App() {
             {/* RECIPIENT ROUTES */}
             <Route path="/donations/recipient/health-info" element={<ProtectedRoute allowedRoles={['Recipient']}><HealthInfo /></ProtectedRoute>} />
             <Route path="/donations/recipient/request" element={<ProtectedRoute allowedRoles={['Recipient']}><CreateRequest /></ProtectedRoute>} />
-            <Route path="/recipient/my-requests" element={<ProtectedRoute allowedRoles={['Recipient']}><MyRequests /></ProtectedRoute>} />
 
             {/* DONOR ROUTES */}
             <Route path="/donations/donor/check" element={<ProtectedRoute allowedRoles={['Donor']}><EligibilityQuiz /></ProtectedRoute>} />
             <Route path="/donations/donor/register-intent" element={<ProtectedRoute allowedRoles={['Donor']}><RegisterIntent /></ProtectedRoute>} />
+            <Route path="/donations/donor/history" element={<ProtectedRoute allowedRoles={['Donor']}><DonationHistory /></ProtectedRoute>} /> 
             <Route path="/donations/donor/events" element={<ProtectedRoute allowedRoles={['Donor']}><DonorEvents /></ProtectedRoute>} />
 
             {/* ADMIN SYSTEM ROUTES */}
@@ -69,6 +70,7 @@ function App() {
             <Route path="/admin/recipients" element={<ProtectedRoute allowedRoles={['Red_Cross_Admin']}><AdminRecipients /></ProtectedRoute>} />
             <Route path="/admin/identities" element={<ProtectedRoute allowedRoles={['Red_Cross_Admin']}><AdminIdentities /></ProtectedRoute>} />
             <Route path="/admin/requests" element={<ProtectedRoute allowedRoles={['Red_Cross_Admin']}><RequestVerification /></ProtectedRoute>} />
+            <Route path="/admin/intents" element={<ProtectedRoute allowedRoles={['Red_Cross_Admin']}><IntentVerification /></ProtectedRoute>} />
             <Route path="/admin/events" element={<ProtectedRoute allowedRoles={['Red_Cross_Admin']}><AdminEvents /></ProtectedRoute>} />
 
             <Route path="*" element={<Navigate to="/" replace />} />
