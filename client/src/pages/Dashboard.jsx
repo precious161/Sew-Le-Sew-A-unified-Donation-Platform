@@ -5,9 +5,11 @@ import { useTheme } from '../context/ThemeContext';
 import Sidebar from '../components/layout/Sidebar';
 import DonationService from '../services/DonationService';
 import ProfileService from '../services/ProfileService';
+import EventService from '../services/EventService'; // <--- NEW IMPORT
 import {
-  Sun, Moon, ShieldCheck, Activity, Plus, Heart, Lock, 
-  CheckCircle, Clock, Search, HeartPulse, ArrowRight
+  Sun, Moon, ShieldCheck, Activity, Plus, Heart, Lock,
+  CheckCircle, Clock, Search, HeartPulse, ArrowRight,
+  MapPin, Users, Calendar // <--- ADDED EVENT ICONS
 } from 'lucide-react';
 
 const Dashboard = () => {
@@ -16,12 +18,22 @@ const Dashboard = () => {
   const navigate = useNavigate();
 
   const [loading, setLoading] = useState(true);
-  const [status, setStatus] = useState({ 
-    identity: 'Unverified', 
-    hasHealthData: false, 
-    passedQuiz: false 
+  const [status, setStatus] = useState({
+    identity: 'Unverified',
+    hasHealthData: false,
+    passedQuiz: false
   });
   const [activeRequests, setActiveRequests] = useState([]);
+  const [events, setEvents] = useState([]); // <--- NEW STATE FOR EVENTS
+
+  const fetchEventsData = async () => {
+    try {
+      const res = await EventService.getPublicEvents();
+      if (res.success) setEvents(res.data);
+    } catch (err) {
+      console.error("Failed to refresh events", err);
+    }
+  };
 
   useEffect(() => {
     if (user?.Role === 'Red_Cross_Admin') {
@@ -33,12 +45,13 @@ const Dashboard = () => {
         const isRecipient = user?.Role === 'Recipient';
         const isDonor = user?.Role === 'Donor';
 
-        // Parallel fetch for all registry parameters
-        const [pRes, hRes, reqRes, quizRes] = await Promise.all([
+        // Parallel fetch for all registry parameters + Events for Donors
+        const [pRes, hRes, reqRes, quizRes, eventsRes] = await Promise.all([
           ProfileService.getMe(),
           DonationService.getHealthInfo().catch(() => ({ success: false })),
           isRecipient ? DonationService.getMyRequests().catch(() => ({ success: false, data: [] })) : Promise.resolve({ data: [] }),
-          isDonor ? DonationService.getEligibilityHistory().catch(() => ({ success: false, data: [] })) : Promise.resolve({ data: [] })
+          isDonor ? DonationService.getEligibilityHistory().catch(() => ({ success: false, data: [] })) : Promise.resolve({ data: [] }),
+          isDonor ? EventService.getPublicEvents().catch(() => ({ success: false, data: [] })) : Promise.resolve({ data: [] }) // <--- FETCH EVENTS
         ]);
 
         setStatus({
@@ -47,9 +60,8 @@ const Dashboard = () => {
           passedQuiz: quizRes.data?.length > 0 && quizRes.data[0].isEligible
         });
 
-        if (reqRes.success && reqRes.data) {
-          setActiveRequests(reqRes.data);
-        }
+        if (reqRes.success && reqRes.data) setActiveRequests(reqRes.data);
+        if (eventsRes.success && eventsRes.data) setEvents(eventsRes.data); // <--- SET EVENTS
 
       } catch (err) {
         console.error("Dashboard Sync Failed", err);
@@ -60,6 +72,15 @@ const Dashboard = () => {
 
     if (user) syncRegistryData();
   }, [user, navigate]);
+
+  const handleRSVP = async (eventId) => {
+    try {
+      await EventService.rsvpToEvent(eventId);
+      fetchEventsData(); // Refresh just the events after RSVP
+    } catch (error) {
+      console.error("Failed to RSVP", error);
+    }
+  };
 
   if (!user || user.Role === 'Red_Cross_Admin') return null;
 
@@ -72,8 +93,7 @@ const Dashboard = () => {
   const isVerified = status.identity === 'Verified';
   const isRecipient = user.Role === 'Recipient';
   const isDonor = user.Role === 'Donor';
-  
-  // LOGIC GATEKEEPER
+
   const canProceed = isVerified && (isRecipient ? status.hasHealthData : status.passedQuiz);
 
   const getProgressStep = (reqStatus) => {
@@ -101,8 +121,8 @@ const Dashboard = () => {
           </button>
         </header>
 
-        <div className="flex-1 max-w-6xl w-full mx-auto animate-in fade-in duration-1000">
-           
+        <div className="flex-1 max-w-6xl w-full mx-auto animate-in fade-in duration-1000 pb-10">
+
            {/* BANNER SECTION */}
            <div className={`rounded-[60px] p-16 shadow-2xl text-white relative overflow-hidden transition-all duration-700 ${
              canProceed ? 'bg-blue-600 shadow-blue-900/30' : 'bg-[#111C44]'
@@ -155,7 +175,6 @@ const Dashboard = () => {
 
            {/* ACTION HUB SECTION */}
            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-12">
-                {/* CARD 1: MEDICAL ACTION */}
                 <button
                     onClick={() => navigate(isRecipient ? '/donations/recipient/health-info' : '/donations/donor/check')}
                     className={`p-10 rounded-[55px] text-left border transition-all ${isDarkMode ? 'bg-white/5 border-white/5 text-white hover:bg-white/10' : 'bg-white border-gray-100 text-[#111C44] shadow-xl shadow-gray-200/50 hover:-translate-y-1'}`}
@@ -167,13 +186,12 @@ const Dashboard = () => {
                       1. {isRecipient ? 'Medical Profile' : 'Eligibility Quiz'}
                     </h3>
                     <p className="text-xs text-gray-400 font-medium italic leading-relaxed">
-                      {isRecipient 
-                        ? (status.hasHealthData ? "Medical records are synced." : "Synchronize vitals for biological matching.") 
+                      {isRecipient
+                        ? (status.hasHealthData ? "Medical records are synced." : "Synchronize vitals for biological matching.")
                         : (status.passedQuiz ? "Health screening completed." : "Analyze health metrics against standards.")}
                     </p>
                 </button>
 
-                {/* CARD 2: DISPATCH GATED ACTION */}
                 <button
                     onClick={() => canProceed && navigate(isRecipient ? '/donations/recipient/request' : '/donations/donor/register-intent')}
                     className={`p-10 rounded-[55px] text-left border transition-all relative overflow-hidden group ${
@@ -194,6 +212,70 @@ const Dashboard = () => {
                     {canProceed && <ArrowRight className="absolute bottom-10 right-10 text-blue-600 opacity-0 group-hover:opacity-100 group-hover:translate-x-2 transition-all" size={32} />}
                 </button>
            </div>
+
+           {/* ── DONOR: UPCOMING EVENTS SECTION ── */}
+           {isDonor && events.length > 0 && (
+             <div className="mt-16 animate-in fade-in slide-in-from-bottom-10 duration-1000">
+                <div className="flex items-center gap-3 mb-6">
+                   <div className="bg-medical-red p-2 rounded-xl text-white">
+                      <Calendar size={20} />
+                   </div>
+                   <h3 className="text-2xl font-black tracking-tighter uppercase italic text-[#111C44] dark:text-white">
+                     Active Donation Drives
+                   </h3>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {events.map((event) => {
+                    const isAttending = event.attendees.some(a => a.id === user.id);
+                    const dateObj = new Date(event.eventDate);
+
+                    return (
+                      <div key={event.id} className={`p-6 rounded-[35px] border shadow-xl flex flex-col justify-between transition-all ${
+                        isAttending
+                          ? 'bg-medical-red/5 border-medical-red/30 dark:bg-medical-red/10'
+                          : 'bg-white dark:bg-white/5 border-gray-100 dark:border-white/5 hover:border-medical-red'
+                      }`}>
+                        <div>
+                          <div className="flex justify-between items-start mb-4">
+                            <h4 className="font-black text-lg text-[#1B2559] dark:text-white uppercase italic pr-4">
+                              {event.eventName}
+                            </h4>
+                            <div className={`w-14 h-14 shrink-0 rounded-2xl flex flex-col items-center justify-center font-black shadow-md ${isAttending ? 'bg-medical-red text-white' : 'bg-[#111C44] text-white'}`}>
+                              <span className="text-[9px] uppercase text-white/60 -mb-1">{dateObj.toLocaleString('en-US', { month: 'short' })}</span>
+                              <span className="text-xl">{dateObj.getDate()}</span>
+                            </div>
+                          </div>
+
+                          <div className="space-y-2 mb-6">
+                            <p className="text-[10px] font-bold uppercase text-gray-400 flex items-center gap-2 tracking-widest">
+                              <MapPin size={12} className="text-medical-red" /> {event.location}
+                            </p>
+                            <p className="text-[10px] font-bold uppercase text-gray-400 flex items-center gap-2 tracking-widest">
+                              <Clock size={12} className="text-blue-500" /> {event.startTime} - {event.endTime}
+                            </p>
+                            <p className="text-[10px] font-bold uppercase text-gray-400 flex items-center gap-2 tracking-widest">
+                              <Users size={12} className="text-green-500" /> {event._count.attendees} Responded
+                            </p>
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={() => handleRSVP(event.id)}
+                          className={`w-full py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${
+                            isAttending
+                              ? 'bg-white dark:bg-[#111C44] text-medical-red border border-medical-red/20 shadow-sm hover:bg-medical-red hover:text-white'
+                              : 'bg-medical-red text-white shadow-xl shadow-red-900/20 hover:bg-red-700'
+                          }`}
+                        >
+                          {isAttending ? <><CheckCircle size={14} /> Cancel RSVP</> : <><Plus size={14} /> RSVP Now</>}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+             </div>
+           )}
 
            <p className="mt-16 text-center text-[8px] font-black text-gray-300 dark:text-white/10 uppercase tracking-[0.5em]">
              Sew le Sew • Authorized Core Coordination Node

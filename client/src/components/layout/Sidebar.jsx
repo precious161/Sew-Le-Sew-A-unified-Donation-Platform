@@ -4,8 +4,8 @@ import { useAuth } from '../../hooks/useAuth';
 import AuthService from '../../services/AuthService';
 import {
   LayoutDashboard, UserCircle, Heart, LogOut, ShieldAlert,
-  Users, UserPlus, Activity, ClipboardCheck, Fingerprint, 
-  History, FileText, HeartPulse
+  Users, UserPlus, Activity, ClipboardCheck, Fingerprint,
+  History, FileText, HeartPulse, Calendar
 } from 'lucide-react';
 
 const Sidebar = ({ isDarkMode }) => {
@@ -55,6 +55,7 @@ const Sidebar = ({ isDarkMode }) => {
             <NavItem icon={<Fingerprint size={18}/>} label="Identity Queue" active={isActive('/admin/identities')} onClick={() => navigate('/admin/identities')} />
             <NavItem icon={<Users size={18}/>} label="Donor Registry" active={isActive('/admin/donors')} onClick={() => navigate('/admin/donors')} />
             <NavItem icon={<UserPlus size={18}/>} label="Recipient Registry" active={isActive('/admin/recipients')} onClick={() => navigate('/admin/recipients')} />
+            <NavItem icon={<Calendar size={18}/>} label="Donation Drives" active={isActive('/admin/events')} onClick={() => navigate('/admin/events')} />
           </>
         )}
 
@@ -92,6 +93,12 @@ const Sidebar = ({ isDarkMode }) => {
               label="Register Intent"
               active={isActive('/donations/donor/register-intent')}
               onClick={() => navigate('/donations/donor/register-intent')}
+            />
+            <NavItem
+              icon={<Calendar size={18}/>}
+              label="Donation Drives"
+              active={isActive('/donations/donor/events')}
+              onClick={() => navigate('/donations/donor/events')}
             />
           </>
         )}
