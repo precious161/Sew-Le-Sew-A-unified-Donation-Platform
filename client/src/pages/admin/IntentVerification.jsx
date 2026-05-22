@@ -5,26 +5,27 @@ import DonationService from '../../services/DonationService';
 import { useTheme } from '../../context/ThemeContext';
 import { 
   FileText, CheckCircle, XCircle, ExternalLink, 
-  ShieldCheck, ArrowLeft, X, Droplets, Stethoscope, Box, AlertCircle 
+  ShieldCheck, ArrowLeft, X, Heart, Activity, 
+  Calendar, MapPin, User, AlertCircle
 } from 'lucide-react';
 
-const RequestVerification = () => {
+const IntentVerification = () => {
   const navigate = useNavigate();
   const { toggleTheme } = useTheme();
   
-  const [requests, setRequests] = useState([]);
+  const [intents, setIntents] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selectedRequest, setSelectedRequest] = useState(null);
+  const [selectedIntent, setSelectedIntent] = useState(null);
   const [rejectionReason, setRejectionReason] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
 
   const fetchQueue = async () => {
     try {
-      const res = await DonationService.getPendingRequests();
-      if (res.success) setRequests(res.requests || []);
-    } catch (error) {
-      console.error("Fetch Error:", error.message);
+      const res = await DonationService.getPendingIntents();
+      if (res.success) setIntents(res.intents || []);
+    } catch (err) {
+      console.error("Registry Sync Error:", err.message);
     } finally {
       setLoading(false);
     }
@@ -34,7 +35,7 @@ const RequestVerification = () => {
 
   const handleProcess = async (approved) => {
     if (!approved && !rejectionReason.trim()) {
-      setMessage({ type: 'error', text: 'CLINICAL REASON REQUIRED FOR REJECTION' });
+      setMessage({ type: 'error', text: 'REJECTION REASON REQUIRED' });
       return;
     }
 
@@ -42,24 +43,22 @@ const RequestVerification = () => {
     setMessage({ type: '', text: '' });
 
     try {
-      const res = await DonationService.verifyRequest(selectedRequest.id, {
+      const res = await DonationService.verifyDonorIntent(selectedIntent.id, {
         approved,
-        rejectionReason: approved ? "Medically Cleared" : rejectionReason,
-        correctedUrgencyLevel: selectedRequest.urgencyLevel,
-        correctedItemQuantity: selectedRequest.itemQuantity || 1
+        rejectionReason: approved ? "Medically Cleared" : rejectionReason
       });
 
       if (res.success) {
-        setMessage({ type: 'success', text: approved ? 'SUCCESS: CASE VERIFIED' : 'CASE REJECTED' });
+        setMessage({ type: 'success', text: approved ? 'DONOR VERIFIED' : 'INTENT REJECTED' });
         setTimeout(() => {
-          setRequests(prev => prev.filter(r => r.id !== selectedRequest.id));
-          setSelectedRequest(null);
+          setIntents(prev => prev.filter(i => i.id !== selectedIntent.id));
+          setSelectedIntent(null);
           setRejectionReason('');
           setMessage({ type: '', text: '' });
         }, 2000);
       }
     } catch (err) {
-      const serverMsg = err.response?.data?.message || "SYSTEM BUSY: PLEASE TRY AGAIN";
+      const serverMsg = err.response?.data?.message || "UPDATE FAILED";
       setMessage({ type: 'error', text: serverMsg.toUpperCase() });
     } finally {
       setActionLoading(false);
@@ -68,7 +67,7 @@ const RequestVerification = () => {
 
   if (loading) return (
     <div className="h-screen flex items-center justify-center bg-[#0b1121]">
-       <div className="animate-pulse font-black text-white/20 uppercase tracking-[0.5em]">Synchronizing Registry...</div>
+       <div className="animate-pulse font-black text-white/20 uppercase tracking-[0.5em]">Syncing Clinical Registry...</div>
     </div>
   );
 
@@ -82,7 +81,7 @@ const RequestVerification = () => {
                 <ArrowLeft size={18} className="group-hover:-translate-x-1 transition-transform" />
                 <span className="text-[10px] font-black uppercase tracking-widest text-white">Back to Portal</span>
             </button>
-            <h1 className="text-4xl font-black text-white tracking-tighter">Request Verification Queue</h1>
+            <h1 className="text-4xl font-black text-white tracking-tighter">Donor Intent Verification</h1>
           </div>
           <div className="p-4 rounded-2xl bg-white/5 border border-white/10 text-white flex items-center gap-4 shadow-2xl">
               <ShieldCheck className="text-green-500" size={24} />
@@ -91,33 +90,33 @@ const RequestVerification = () => {
         </header>
 
         <div className="grid grid-cols-1 gap-6 max-w-5xl">
-          {requests.length === 0 ? (
+          {intents.length === 0 ? (
             <div className="p-20 text-center opacity-10 border-2 border-dashed border-white/10 rounded-[45px]">
                <ShieldCheck size={48} className="mx-auto mb-4 text-white" />
-               <p className="font-black uppercase tracking-widest text-xs text-white">Registry Queue Clear</p>
+               <p className="font-black uppercase tracking-widest text-xs text-white">Queue Clear</p>
             </div>
           ) : (
-            requests.map((req) => (
-              <div key={req.id} className="p-8 rounded-[45px] bg-white/5 border border-white/5 flex flex-col md:flex-row justify-between items-center gap-8 group hover:bg-white/[0.08] transition-all relative overflow-hidden shadow-xl">
+            intents.map((intent) => (
+              <div key={intent.id} className="p-8 rounded-[45px] bg-white/5 border border-white/5 flex flex-col md:flex-row justify-between items-center gap-8 group hover:bg-white/[0.08] transition-all relative overflow-hidden shadow-xl">
                 <div className="flex gap-8 items-center flex-1 text-left">
                     <div className="w-16 h-16 rounded-2xl bg-[#0b1121] shadow-inner flex items-center justify-center text-blue-500 border border-white/5">
-                        {req.donationType === 'Blood' ? <Droplets size={28}/> : req.donationType === 'Organ' ? <Stethoscope size={28}/> : <Box size={28}/>}
+                        <Heart size={28}/>
                     </div>
                     <div>
-                        <h4 className="text-white font-black text-xl tracking-tight mb-1">{req.user?.FirstName} {req.user?.LastName}</h4>
+                        <h4 className="text-white font-black text-xl tracking-tight mb-1">{intent.user?.FirstName} {intent.user?.LastName}</h4>
                         <div className="flex flex-wrap gap-4 items-center">
-                            <span className="text-[9px] font-black uppercase text-blue-400 bg-blue-500/10 px-3 py-1 rounded-lg border border-blue-500/20">{req.donationType}</span>
-                            <span className={`text-[9px] font-black uppercase px-3 py-1 rounded-lg border ${req.urgencyLevel === 'Critical' ? 'bg-red-500 text-white border-red-500/50 animate-pulse' : 'bg-amber-500/10 text-amber-500'}`}>{req.urgencyLevel} Urgency</span>
+                            <span className="text-[9px] font-black uppercase text-blue-400 bg-blue-500/10 px-3 py-1 rounded-lg border border-blue-500/20">{intent.category}</span>
+                            <span className="text-[9px] font-black uppercase px-3 py-1 rounded-lg border bg-yellow-500/10 text-yellow-500 border-yellow-500/20 italic">Pledge Review</span>
                         </div>
                     </div>
                 </div>
-                <button onClick={() => setSelectedRequest(req)} className="px-10 py-4 rounded-2xl bg-white text-[#0b1121] font-black text-xs uppercase tracking-widest hover:bg-medical-red hover:text-white transition-all shadow-xl">Review Case</button>
+                <button onClick={() => setSelectedIntent(intent)} className="px-10 py-4 rounded-2xl bg-white text-[#0b1121] font-black text-xs uppercase tracking-widest hover:bg-blue-600 hover:text-white transition-all shadow-xl">Review Case</button>
               </div>
             ))
           )}
         </div>
 
-        {selectedRequest && (
+        {selectedIntent && (
           <div className="fixed inset-0 z-[250] flex items-center justify-center p-6 bg-[#0b1121]/95 backdrop-blur-xl animate-in fade-in duration-300 text-left">
              <div className="bg-white rounded-[55px] p-12 max-w-4xl w-full shadow-2xl relative border border-white/10 overflow-y-auto max-h-[90vh]">
                 
@@ -130,50 +129,52 @@ const RequestVerification = () => {
                   </div>
                 )}
 
-                <button onClick={() => setSelectedRequest(null)} className="absolute top-10 right-10 text-gray-300 hover:text-medical-red transition-all"><X size={28}/></button>
+                <button onClick={() => setSelectedIntent(null)} className="absolute top-10 right-10 text-gray-300 hover:text-medical-red transition-all"><X size={28}/></button>
                 <h3 className="text-3xl font-black text-[#111C44] uppercase italic tracking-tighter mb-2 leading-none">Registry Adjudication</h3>
                 <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em] mb-10 border-b border-gray-100 pb-6">Authorized Verification Loop</p>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-12 mb-10">
                     <div>
-                        <p className="text-[10px] font-black text-[#1B2559] uppercase mb-4 tracking-widest italic">Medical Documentation</p>
-                        <a href={selectedRequest.documentUrl} target="_blank" rel="noreferrer" className="group relative block rounded-[35px] overflow-hidden border-2 border-dashed border-gray-200 bg-gray-50 h-64 shadow-inner">
-                            <img src={selectedRequest.documentUrl} alt="Proof" className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-opacity" />
+                        <p className="text-[10px] font-black text-[#1B2559] uppercase mb-4 tracking-widest italic text-left block">Clearance Documentation</p>
+                        <div className="group relative block rounded-[35px] overflow-hidden border-2 border-dashed border-gray-200 bg-gray-50 h-64 shadow-inner">
+                            <img src={selectedIntent.documentUrl} alt="Proof" className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-opacity" />
                             <div className="absolute inset-0 flex items-center justify-center bg-[#111C44]/50 transition-opacity group-hover:opacity-0">
                                 <div className="flex flex-col items-center gap-2 text-white font-black uppercase text-[9px]">
                                     <ExternalLink size={24}/> Open Original
                                 </div>
                             </div>
-                        </a>
+                        </div>
                     </div>
                     <div className="space-y-8">
-                        <DetailItem label="Hospital Authority" value={selectedRequest.hospitalName} />
-                        <DetailItem label="Attending Physician" value={`DR. ${selectedRequest.attendingDoctor}`} />
-                        <div>
-                            <p className="text-[9px] font-black text-gray-400 uppercase tracking-[0.2em] mb-3 italic text-left">Urgency Assessment</p>
-                            <div className={`w-fit px-5 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-sm border ${
-                                selectedRequest.urgencyLevel === 'Critical' ? 'bg-red-500 text-white border-red-400' : 'bg-blue-50 text-blue-600 border-blue-100'
-                            }`}>
-                                {selectedRequest.urgencyLevel}
+                        <DetailBlock label="Donor Identity" value={`${selectedIntent.user?.FirstName} ${selectedIntent.user?.LastName}`} icon={<User size={14}/>} />
+                        <DetailBlock label="Collection Center" value={selectedIntent.location} icon={<MapPin size={14}/>} />
+                        <div className="grid grid-cols-2 gap-4 text-left">
+                            <div>
+                                <p className="text-[9px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2">Category</p>
+                                <p className="text-xs font-black text-blue-600 uppercase">{selectedIntent.category}</p>
+                            </div>
+                            <div>
+                                <p className="text-[9px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2">Target Date</p>
+                                <p className="text-xs font-black text-[#1B2559] uppercase">{new Date(selectedIntent.plannedDate).toDateString()}</p>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <div className="space-y-3 mb-10">
-                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-4 italic text-left block">Clinical Rejection Reason</label>
+                <div className="space-y-3 mb-10 text-left">
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-4 italic block">Clinical Rejection Reason</label>
                     <textarea 
                         className="w-full p-6 bg-gray-50 rounded-[30px] border border-gray-100 outline-none text-sm text-[#1B2559] font-medium resize-none h-32 shadow-inner"
-                        placeholder="State reason if declining this case..."
+                        placeholder="State reason if declining this donor pledge..."
                         value={rejectionReason}
                         onChange={(e) => setRejectionReason(e.target.value)}
                     />
                 </div>
 
                 <div className="grid grid-cols-2 gap-6">
-                    <button disabled={actionLoading} onClick={() => handleProcess(false)} className="py-6 rounded-3xl bg-red-50 text-red-500 font-black text-xs uppercase tracking-widest hover:bg-medical-red hover:text-white transition-all shadow-lg border border-red-100 disabled:opacity-50">Reject Request</button>
+                    <button disabled={actionLoading} onClick={() => handleProcess(false)} className="py-6 rounded-3xl bg-red-50 text-red-500 font-black text-xs uppercase tracking-widest hover:bg-medical-red hover:text-white transition-all shadow-lg border border-red-100 disabled:opacity-50">Reject Intent</button>
                     <button disabled={actionLoading} onClick={() => handleProcess(true)} className="py-6 rounded-3xl bg-[#22C55E] text-white font-black text-xs uppercase tracking-widest hover:bg-green-600 transition-all shadow-xl shadow-green-900/20 flex items-center justify-center gap-3 disabled:opacity-50">
-                        {actionLoading ? "Processing..." : <><CheckCircle size={20}/> Approve Case</>}
+                        {actionLoading ? "Processing..." : <><CheckCircle size={20}/> Approve Donor</>}
                     </button>
                 </div>
              </div>
@@ -184,11 +185,14 @@ const RequestVerification = () => {
   );
 };
 
-const DetailItem = ({ label, value }) => (
+const DetailBlock = ({ label, value, icon }) => (
     <div className="text-left">
-        <p className="text-[9px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2 italic">{label}</p>
-        <p className="text-sm font-black text-[#1B2559] uppercase tracking-tight">{value || 'UNSPECIFIED'}</p>
+        <p className="text-[9px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2">{label}</p>
+        <div className="flex items-center gap-2">
+            <span className="text-blue-500">{icon}</span>
+            <p className="text-sm font-black text-[#1B2559] uppercase tracking-tight">{value || 'N/A'}</p>
+        </div>
     </div>
 );
 
-export default RequestVerification;
+export default IntentVerification;
