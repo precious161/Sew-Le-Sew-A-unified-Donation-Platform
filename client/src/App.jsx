@@ -21,17 +21,19 @@ import AdminRecipients from './pages/admin/AdminRecipients';
 import AdminIdentities from './pages/admin/AdminIdentities';
 import RequestVerification from './pages/admin/RequestVerification';
 import AdminEvents from './pages/admin/AdminEvents';
-import IntentVerification from './pages/admin/IntentVerification'; 
+import IntentVerification from './pages/admin/IntentVerification';
+import AdminMatches from './pages/admin/AdminMatches'; 
 
 // Recipient Subsystem
 import HealthInfo from './pages/donations/recipient/HealthInfo';
 import CreateRequest from './pages/donations/recipient/CreateRequest';
+// CLEANUP: MyRequests removed
 
 // Donor Subsystem
 import EligibilityQuiz from './pages/donations/donor/EligibilityQuiz';
 import RegisterIntent from './pages/donations/donor/RegisterIntent';
 import DonorEvents from './pages/donations/donor/DonorEvents';
-import DonationHistory from './pages/donations/donor/DonationHistory'; // RESTORED
+import DonationHistory from './pages/donations/donor/DonationHistory';
 
 const HomeRedirect = () => {
   const { user } = useAuth();
@@ -72,6 +74,7 @@ function App() {
             <Route path="/admin/requests" element={<ProtectedRoute allowedRoles={['Red_Cross_Admin']}><RequestVerification /></ProtectedRoute>} />
             <Route path="/admin/intents" element={<ProtectedRoute allowedRoles={['Red_Cross_Admin']}><IntentVerification /></ProtectedRoute>} />
             <Route path="/admin/events" element={<ProtectedRoute allowedRoles={['Red_Cross_Admin']}><AdminEvents /></ProtectedRoute>} />
+            <Route path="/admin/matches" element={<ProtectedRoute allowedRoles={['Red_Cross_Admin']}><AdminMatches /></ProtectedRoute>} />
 
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

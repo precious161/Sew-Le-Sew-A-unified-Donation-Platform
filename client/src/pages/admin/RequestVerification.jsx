@@ -5,7 +5,8 @@ import DonationService from '../../services/DonationService';
 import { useTheme } from '../../context/ThemeContext';
 import { 
   FileText, CheckCircle, XCircle, ExternalLink, 
-  ShieldCheck, ArrowLeft, X, Droplets, Stethoscope, Box, AlertCircle 
+  ShieldCheck, ArrowLeft, X, Droplets, Stethoscope, Box, AlertCircle,
+  Activity, Heart, User
 } from 'lucide-react';
 
 const RequestVerification = () => {
@@ -98,12 +99,12 @@ const RequestVerification = () => {
             </div>
           ) : (
             requests.map((req) => (
-              <div key={req.id} className="p-8 rounded-[45px] bg-white/5 border border-white/5 flex flex-col md:flex-row justify-between items-center gap-8 group hover:bg-white/[0.08] transition-all relative overflow-hidden shadow-xl">
-                <div className="flex gap-8 items-center flex-1 text-left">
+              <div key={req.id} className="p-8 rounded-[45px] bg-white/5 border border-white/5 flex flex-col md:flex-row justify-between items-center gap-8 group hover:bg-white/[0.08] transition-all relative overflow-hidden shadow-xl text-left">
+                <div className="flex gap-8 items-center flex-1">
                     <div className="w-16 h-16 rounded-2xl bg-[#0b1121] shadow-inner flex items-center justify-center text-blue-500 border border-white/5">
                         {req.donationType === 'Blood' ? <Droplets size={28}/> : req.donationType === 'Organ' ? <Stethoscope size={28}/> : <Box size={28}/>}
                     </div>
-                    <div>
+                    <div className="text-left">
                         <h4 className="text-white font-black text-xl tracking-tight mb-1">{req.user?.FirstName} {req.user?.LastName}</h4>
                         <div className="flex flex-wrap gap-4 items-center">
                             <span className="text-[9px] font-black uppercase text-blue-400 bg-blue-500/10 px-3 py-1 rounded-lg border border-blue-500/20">{req.donationType}</span>
@@ -132,9 +133,10 @@ const RequestVerification = () => {
 
                 <button onClick={() => setSelectedRequest(null)} className="absolute top-10 right-10 text-gray-300 hover:text-medical-red transition-all"><X size={28}/></button>
                 <h3 className="text-3xl font-black text-[#111C44] uppercase italic tracking-tighter mb-2 leading-none">Registry Adjudication</h3>
-                <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em] mb-10 border-b border-gray-100 pb-6">Authorized Verification Loop</p>
+                <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em] mb-10 border-b border-gray-100 pb-6">Authorized Verification Loop (Recipient)</p>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-12 mb-10">
+                    {/* Documentation Side */}
                     <div>
                         <p className="text-[10px] font-black text-[#1B2559] uppercase mb-4 tracking-widest italic">Medical Documentation</p>
                         <a href={selectedRequest.documentUrl} target="_blank" rel="noreferrer" className="group relative block rounded-[35px] overflow-hidden border-2 border-dashed border-gray-200 bg-gray-50 h-64 shadow-inner">
@@ -146,15 +148,41 @@ const RequestVerification = () => {
                             </div>
                         </a>
                     </div>
+
+                    {/* Metadata Side (RESTORED & IMPROVED) */}
                     <div className="space-y-8">
-                        <DetailItem label="Hospital Authority" value={selectedRequest.hospitalName} />
-                        <DetailItem label="Attending Physician" value={`DR. ${selectedRequest.attendingDoctor}`} />
-                        <div>
-                            <p className="text-[9px] font-black text-gray-400 uppercase tracking-[0.2em] mb-3 italic text-left">Urgency Assessment</p>
-                            <div className={`w-fit px-5 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-sm border ${
-                                selectedRequest.urgencyLevel === 'Critical' ? 'bg-red-500 text-white border-red-400' : 'bg-blue-50 text-blue-600 border-blue-100'
-                            }`}>
-                                {selectedRequest.urgencyLevel}
+                        <DetailItem label="Recipient Identity" value={`${selectedRequest.user?.FirstName} ${selectedRequest.user?.LastName}`} icon={<User size={14}/>} />
+                        
+                        {/* SPECIFIC CATEGORY & TYPE SECTION */}
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <p className="text-[9px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2 italic">Category</p>
+                                <div className="flex items-center gap-2 text-blue-600 font-black text-xs uppercase">
+                                    <Activity size={14}/> {selectedRequest.donationType}
+                                </div>
+                            </div>
+                            <div>
+                                <p className="text-[9px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2 italic">Requirement</p>
+                                <p className="text-xs font-black text-[#1B2559] uppercase">
+                                    {selectedRequest.requiredBloodType || selectedRequest.organType || selectedRequest.itemType || 'General'}
+                                </p>
+                            </div>
+                        </div>
+
+                        <DetailItem label="Hospital Center" value={selectedRequest.hospitalName} icon={<Activity size={14}/>} />
+                        
+                        <div className="flex justify-between items-end border-t border-gray-50 pt-6">
+                            <div>
+                                <p className="text-[9px] font-black text-gray-400 uppercase tracking-[0.2em] mb-3 italic">Urgency Assessment</p>
+                                <div className={`w-fit px-5 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-sm border ${
+                                    selectedRequest.urgencyLevel === 'Critical' ? 'bg-red-500 text-white border-red-400' : 'bg-blue-50 text-blue-600 border-blue-100'
+                                }`}>
+                                    {selectedRequest.urgencyLevel}
+                                </div>
+                            </div>
+                            <div className="text-right">
+                                <p className="text-[9px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2 italic">Quantity</p>
+                                <p className="text-lg font-black text-[#1B2559]">{selectedRequest.itemQuantity || selectedRequest.quantity || 1} UNIT(S)</p>
                             </div>
                         </div>
                     </div>
@@ -171,9 +199,9 @@ const RequestVerification = () => {
                 </div>
 
                 <div className="grid grid-cols-2 gap-6">
-                    <button disabled={actionLoading} onClick={() => handleProcess(false)} className="py-6 rounded-3xl bg-red-50 text-red-500 font-black text-xs uppercase tracking-widest hover:bg-medical-red hover:text-white transition-all shadow-lg border border-red-100 disabled:opacity-50">Reject Request</button>
+                    <button disabled={actionLoading} onClick={() => handleProcess(false)} className="py-6 rounded-3xl bg-red-50 text-red-500 font-black text-xs uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all shadow-lg border border-red-100 disabled:opacity-50">Reject Request</button>
                     <button disabled={actionLoading} onClick={() => handleProcess(true)} className="py-6 rounded-3xl bg-[#22C55E] text-white font-black text-xs uppercase tracking-widest hover:bg-green-600 transition-all shadow-xl shadow-green-900/20 flex items-center justify-center gap-3 disabled:opacity-50">
-                        {actionLoading ? "Processing..." : <><CheckCircle size={20}/> Approve Case</>}
+                        {actionLoading ? "Updating..." : <><CheckCircle size={20}/> Approve Case</>}
                     </button>
                 </div>
              </div>
@@ -184,10 +212,13 @@ const RequestVerification = () => {
   );
 };
 
-const DetailItem = ({ label, value }) => (
+const DetailItem = ({ label, value, icon }) => (
     <div className="text-left">
         <p className="text-[9px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2 italic">{label}</p>
-        <p className="text-sm font-black text-[#1B2559] uppercase tracking-tight">{value || 'UNSPECIFIED'}</p>
+        <div className="flex items-center gap-2">
+            {icon && <span className="text-blue-500">{icon}</span>}
+            <p className="text-sm font-black text-[#1B2559] uppercase tracking-tight">{value || 'UNSPECIFIED'}</p>
+        </div>
     </div>
 );
 
