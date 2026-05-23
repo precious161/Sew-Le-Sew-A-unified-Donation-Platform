@@ -5,7 +5,7 @@ import AuthService from '../../services/AuthService';
 import {
   LayoutDashboard, UserCircle, Heart, LogOut, ShieldAlert,
   Users, UserPlus, Activity, ClipboardCheck, Fingerprint,
-  History, FileText, HeartPulse, Calendar
+  History, FileText, HeartPulse, Calendar, Brain
 } from 'lucide-react';
 
 const Sidebar = ({ isDarkMode }) => {
@@ -28,7 +28,7 @@ const Sidebar = ({ isDarkMode }) => {
     <div className={`w-72 h-screen flex flex-col p-6 fixed left-0 top-0 z-50 shadow-2xl transition-colors duration-500 ${
       isDarkMode ? 'bg-[#0b1121] border-r border-white/5' : 'bg-[#111C44]'
     }`}>
-      {/* 1. BRAND LOGO */}
+      {/* BRAND LOGO */}
       <div className="flex items-center gap-3 mb-16 mt-4 px-2 cursor-pointer group" onClick={() => navigate('/')}>
         <div className="bg-medical-red p-2.5 rounded-2xl shadow-lg group-hover:scale-110 transition-transform">
           <Heart size={24} fill="white" className="text-white" />
@@ -38,7 +38,7 @@ const Sidebar = ({ isDarkMode }) => {
         </span>
       </div>
 
-      {/* 2. NAVIGATION LINKS */}
+      {/* NAVIGATION LINKS */}
       <nav className="flex-1 space-y-2 overflow-y-auto custom-scrollbar pr-2 text-left">
         <NavItem
           icon={isAdmin ? <ShieldAlert size={18}/> : <LayoutDashboard size={18}/>}
@@ -47,7 +47,7 @@ const Sidebar = ({ isDarkMode }) => {
           onClick={() => navigate(isAdmin ? '/admin' : '/dashboard')}
         />
 
-        {/* --- ADMIN: SYSTEM HUB --- */}
+        {/* ADMIN: SYSTEM HUB */}
         {isAdmin && (
           <>
             <div className="pt-4 pb-2 px-6 text-[9px] font-black text-white/20 uppercase tracking-[0.3em]">System Hub</div>
@@ -56,10 +56,12 @@ const Sidebar = ({ isDarkMode }) => {
             <NavItem icon={<Users size={18}/>} label="Donor Registry" active={isActive('/admin/donors')} onClick={() => navigate('/admin/donors')} />
             <NavItem icon={<UserPlus size={18}/>} label="Recipient Registry" active={isActive('/admin/recipients')} onClick={() => navigate('/admin/recipients')} />
             <NavItem icon={<Calendar size={18}/>} label="Donation Drives" active={isActive('/admin/events')} onClick={() => navigate('/admin/events')} />
+            {/* NEW: AI Analytics Link */}
+            <NavItem icon={<Brain size={18}/>} label="AI Analytics" active={isActive('/admin/analytics')} onClick={() => navigate('/admin/analytics')} />
           </>
         )}
 
-        {/* --- RECIPIENT: PATIENT SERVICES --- */}
+        {/* RECIPIENT: PATIENT SERVICES */}
         {isRecipient && (
           <>
             <div className="pt-4 pb-2 px-6 text-[9px] font-black text-white/20 uppercase tracking-[0.3em]">Patient Services</div>
@@ -78,7 +80,7 @@ const Sidebar = ({ isDarkMode }) => {
           </>
         )}
 
-        {/* --- DONOR: CONTRIBUTION HUB --- */}
+        {/* DONOR: CONTRIBUTION HUB */}
         {isDonor && (
           <>
             <div className="pt-4 pb-2 px-6 text-[9px] font-black text-white/20 uppercase tracking-[0.3em]">Donation Hub</div>
@@ -100,6 +102,12 @@ const Sidebar = ({ isDarkMode }) => {
               active={isActive('/donations/donor/events')}
               onClick={() => navigate('/donations/donor/events')}
             />
+            <NavItem
+              icon={<History size={18}/>}
+              label="My History"
+              active={isActive('/donations/donor/history')}
+              onClick={() => navigate('/donations/donor/history')}
+            />
           </>
         )}
 
@@ -107,9 +115,9 @@ const Sidebar = ({ isDarkMode }) => {
         <NavItem icon={<UserCircle size={18}/>} label="My Profile" active={isActive('/profile')} onClick={() => navigate('/profile')} />
       </nav>
 
-      {/* 3. USER STATUS CARD */}
+      {/* USER STATUS CARD */}
       <div className="pt-6 border-t border-white/5">
-        <div className="flex items-center gap-4 mb-6 p-2 text-white text-left text-left">
+        <div className="flex items-center gap-4 mb-6 p-2 text-white text-left">
           <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black shadow-lg transition-all ${
             isAdmin ? 'bg-[#FFB800] text-[#111C44]' : (isRecipient ? 'bg-blue-600 shadow-blue-500/20' : 'bg-medical-red shadow-red-900/40')
           }`}>

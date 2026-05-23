@@ -133,7 +133,9 @@ model User {
   donationHistory        DonationHistory[]       @relation("DonorHistory")
   auditLogs              AuditLog[]              @relation("AdminAuditLogs")
   createdEvents          DonationEvent[]         @relation("EventCreator")
-  attendingEvents DonationEvent[] @relation("EventAttendees")
+  attendingEvents        DonationEvent[]         @relation("EventAttendees")
+  analyticsReports       AnalyticsReport[]       @relation("AnalyticsReportCreator")
+
   @@index([Role])
   @@index([status])
   @@index([identityStatus])
@@ -400,4 +402,37 @@ model DonationEvent {
   attendees   User[]   @relation("EventAttendees")
   @@index([eventDate])
   @@index([status])
+}
+
+// ─────────────────────────────────────────
+// AI ChatBot and Analytics Subsystem
+// ─────────────────────────────────────────
+
+model ChatInteraction {
+  id             String   @id @default(uuid())
+  userId         String
+  query          String
+  response       String
+  interactionDate DateTime @default(now())
+  status         String   @default("Answered")
+
+  @@index([userId])
+  @@index([interactionDate])
+}
+
+model AnalyticsReport {
+  id            String   @id @default(uuid())
+  reportType    String
+  summary       String
+  generatedDate DateTime @default(now())
+  format        String
+  createdBy     String?
+  fileUrl       String?
+
+  // Relation
+  creator       User?    @relation("AnalyticsReportCreator", fields: [createdBy], references: [id])
+
+  @@index([generatedDate])
+  @@index([reportType])
+  @@index([createdBy])
 }

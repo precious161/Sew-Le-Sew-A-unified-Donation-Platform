@@ -5,11 +5,12 @@ import { useTheme } from '../context/ThemeContext';
 import Sidebar from '../components/layout/Sidebar';
 import DonationService from '../services/DonationService';
 import ProfileService from '../services/ProfileService';
-import EventService from '../services/EventService'; // <--- NEW IMPORT
+import EventService from '../services/EventService';
+import ChatBot from '../components/ai/ChatBot'; // NEW: ChatBot Component
 import {
   Sun, Moon, ShieldCheck, Activity, Plus, Heart, Lock,
   CheckCircle, Clock, Search, HeartPulse, ArrowRight,
-  MapPin, Users, Calendar // <--- ADDED EVENT ICONS
+  MapPin, Users, Calendar
 } from 'lucide-react';
 
 const Dashboard = () => {
@@ -24,7 +25,7 @@ const Dashboard = () => {
     passedQuiz: false
   });
   const [activeRequests, setActiveRequests] = useState([]);
-  const [events, setEvents] = useState([]); // <--- NEW STATE FOR EVENTS
+  const [events, setEvents] = useState([]);
 
   const fetchEventsData = async () => {
     try {
@@ -45,23 +46,22 @@ const Dashboard = () => {
         const isRecipient = user?.Role === 'Recipient';
         const isDonor = user?.Role === 'Donor';
 
-        // Parallel fetch for all registry parameters + Events for Donors
         const [pRes, hRes, reqRes, quizRes, eventsRes] = await Promise.all([
           ProfileService.getMe(),
           DonationService.getHealthInfo().catch(() => ({ success: false })),
           isRecipient ? DonationService.getMyRequests().catch(() => ({ success: false, data: [] })) : Promise.resolve({ data: [] }),
           isDonor ? DonationService.getEligibilityHistory().catch(() => ({ success: false, data: [] })) : Promise.resolve({ data: [] }),
-          isDonor ? EventService.getPublicEvents().catch(() => ({ success: false, data: [] })) : Promise.resolve({ data: [] }) // <--- FETCH EVENTS
+          isDonor ? EventService.getPublicEvents().catch(() => ({ success: false, data: [] })) : Promise.resolve({ data: [] })
         ]);
 
         setStatus({
           identity: pRes.data?.identityStatus || 'Unverified',
           hasHealthData: hRes.success === true && hRes.data !== null,
-          passedQuiz: quizRes.data?.length > 0 && quizRes.data[0].isEligible
+          passedQuiz: quizRes.data?.length > 0 && quizRes.data[0]?.isEligible === true
         });
 
         if (reqRes.success && reqRes.data) setActiveRequests(reqRes.data);
-        if (eventsRes.success && eventsRes.data) setEvents(eventsRes.data); // <--- SET EVENTS
+        if (eventsRes.success && eventsRes.data) setEvents(eventsRes.data);
 
       } catch (err) {
         console.error("Dashboard Sync Failed", err);
@@ -76,7 +76,7 @@ const Dashboard = () => {
   const handleRSVP = async (eventId) => {
     try {
       await EventService.rsvpToEvent(eventId);
-      fetchEventsData(); // Refresh just the events after RSVP
+      fetchEventsData();
     } catch (error) {
       console.error("Failed to RSVP", error);
     }
@@ -131,7 +131,7 @@ const Dashboard = () => {
                   <h2 className="text-7xl font-black italic tracking-tighter leading-none">
                     Welcome, <br /> {user?.FirstName}!
                   </h2>
-                  <div className="flex gap-4 mt-8">
+                  <div className="flex gap-4 mt-8 flex-wrap">
                      <StatusBadge active={isVerified} label={isVerified ? "ID Verified" : "Identity Missing"} />
                      {isRecipient && <StatusBadge active={status.hasHealthData} label={status.hasHealthData ? "Medical Profile Synced" : "Medical Missing"} />}
                      {isDonor && <StatusBadge active={status.passedQuiz} label={status.passedQuiz ? "Quiz Passed" : "Quiz Pending"} />}
@@ -150,7 +150,7 @@ const Dashboard = () => {
                     <div key={idx} className={`p-8 rounded-[40px] shadow-xl border ${isDarkMode ? 'bg-white/5 border-white/5 text-white' : 'bg-white border-gray-100 text-[#111C44]'}`}>
                       <div className="flex justify-between items-start mb-8">
                          <div>
-                           <h4 className="font-black text-lg uppercase italic">Case #{req.id.substring(0,8)}</h4>
+                           <h4 className="font-black text-lg uppercase italic">Case #{req.id?.substring(0,8) || idx}</h4>
                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">{req.donationType} Request • {req.hospitalName || 'General Registry'}</p>
                          </div>
                          <div className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest ${req.urgencyLevel === 'Critical' ? 'bg-red-500/10 text-red-500' : 'bg-blue-500/10 text-blue-500'}`}>
@@ -213,7 +213,7 @@ const Dashboard = () => {
                 </button>
            </div>
 
-           {/* ── DONOR: UPCOMING EVENTS SECTION ── */}
+           {/* DONOR: UPCOMING EVENTS SECTION */}
            {isDonor && events.length > 0 && (
              <div className="mt-16 animate-in fade-in slide-in-from-bottom-10 duration-1000">
                 <div className="flex items-center gap-3 mb-6">
@@ -227,7 +227,7 @@ const Dashboard = () => {
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   {events.map((event) => {
-                    const isAttending = event.attendees.some(a => a.id === user.id);
+                    const isAttending = event.attendees?.some(a => a.id === user.id) || false;
                     const dateObj = new Date(event.eventDate);
 
                     return (
@@ -255,7 +255,7 @@ const Dashboard = () => {
                               <Clock size={12} className="text-blue-500" /> {event.startTime} - {event.endTime}
                             </p>
                             <p className="text-[10px] font-bold uppercase text-gray-400 flex items-center gap-2 tracking-widest">
-                              <Users size={12} className="text-green-500" /> {event._count.attendees} Responded
+                              <Users size={12} className="text-green-500" /> {event._count?.attendees || 0} Responded
                             </p>
                           </div>
                         </div>
@@ -282,12 +282,14 @@ const Dashboard = () => {
            </p>
         </div>
       </main>
+
+      {/* CHATBOT - Added at the bottom of the component */}
+      <ChatBot />
     </div>
   );
 };
 
-// --- HELPER UI ---
-
+// Helper Components
 const StatusBadge = ({ active, label }) => (
     <div className={`px-4 py-1.5 rounded-full border text-[9px] font-black uppercase tracking-widest transition-all ${
         active ? 'bg-green-500/20 border-green-500/30 text-green-400' : 'bg-red-500/10 border-red-500/30 text-red-400 animate-pulse'

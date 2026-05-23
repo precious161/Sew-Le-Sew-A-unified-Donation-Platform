@@ -21,6 +21,9 @@ import auditRoutes from "./routes/security/auditRoutes.js";
 // Import Event routes
 import eventRoutes from "./routes/events/eventRoutes.js";
 
+// Import AI routes
+import aiRoutes from './routes/ai/index.js';
+
 dotenv.config();
 
 const app=express();
@@ -67,8 +70,11 @@ app.use("/api/matching", matchingRoutes);
 // Audit Routes
 app.use("/api/admin/audit", auditRoutes);
 
-// Event Route
+// Event Routes
 app.use("/api/events", eventRoutes);
+
+// AI Routes
+app.use("/api/ai", aiRoutes);
 
 app.use((req,res)=>{
    res.status(StatusCodes.NOT_FOUND).json({
