@@ -33,6 +33,13 @@ router.get(
   DonationRequestController.getPendingVerificationRequests
 );
 
+router.get(
+  "/requests/financial-approved",
+  protect,
+  authorize("Red_Cross_Admin"),
+  DonationRequestController.getApprovedFinancialRequests
+);
+
 router.patch(
   "/requests/:id/verify",
   protect,

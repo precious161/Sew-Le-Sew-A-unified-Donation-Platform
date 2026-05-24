@@ -4,9 +4,16 @@ import * as AuditService from "../../services/security/auditService.js";
 export const triggerOrganMatching = async (req, res) => {
   try {
     await OrganMatchingService.runOrganMatching();
-    return res.status(200).json({ success: true, message: "Organ matching engine ran successfully." });
+    return res.status(200).json({
+      success: true,
+      message: "Organ matching engine ran successfully."
+    });
   } catch (error) {
-    return res.status(500).json({ success: false, message: "Failed to run organ matching." });
+    console.error("triggerOrganMatching Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to run organ matching."
+    });
   }
 };
 
@@ -17,7 +24,11 @@ export const getAllOrganMatches = async (req, res) => {
     const result = await OrganMatchingService.getAllOrganMatches(page, limit);
     return res.status(200).json({ success: true, ...result });
   } catch (error) {
-    return res.status(500).json({ success: false, message: "Failed to fetch matches." });
+    console.error("getAllOrganMatches Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch matches."
+    });
   }
 };
 
@@ -26,7 +37,11 @@ export const getOrganMatchById = async (req, res) => {
     const match = await OrganMatchingService.getOrganMatchById(req.params.id);
     return res.status(200).json({ success: true, data: match });
   } catch (error) {
-    return res.status(error.statusCode || 500).json({ success: false, message: error.message });
+    console.error("getOrganMatchById Error:", error);
+    return res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message
+    });
   }
 };
 
@@ -37,7 +52,11 @@ export const getUnmatchedOrganRequests = async (req, res) => {
     const result = await OrganMatchingService.getUnmatchedOrganRequests(page, limit);
     return res.status(200).json({ success: true, ...result });
   } catch (error) {
-    return res.status(500).json({ success: false, message: "Failed to fetch unmatched requests." });
+    console.error("getUnmatchedOrganRequests Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch unmatched requests."
+    });
   }
 };
 
@@ -45,9 +64,16 @@ export const respondToOrganMatch = async (req, res) => {
   try {
     const { accepted } = req.body;
     await OrganMatchingService.handleOrganDonorResponse(req.params.id, req.user.id, accepted);
-    return res.status(200).json({ success: true, message: accepted ? "Match accepted!" : "Match declined." });
+    return res.status(200).json({
+      success: true,
+      message: accepted ? "✅ Match accepted!" : "❌ Match declined."
+    });
   } catch (error) {
-    return res.status(error.statusCode || 500).json({ success: false, message: error.message });
+    console.error("respondToOrganMatch Error:", error);
+    return res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message
+    });
   }
 };
 
@@ -59,10 +85,22 @@ export const completeOrganDonation = async (req, res) => {
     await OrganMatchingService.confirmOrganCompletion(matchId, adminId);
 
     // --- AUDIT LOG ---
-    await AuditService.createLogEntry(adminId, "Completed Organ Transplant", "Match", `Match ID: ${matchId}`);
+    await AuditService.createLogEntry(
+      adminId,
+      "Completed Organ Transplant",
+      "Match",
+      `Match ID: ${matchId}`
+    );
 
-    return res.status(200).json({ success: true, message: "Organ transplant completed!" });
+    return res.status(200).json({
+      success: true,
+      message: "✅ Organ transplant completed and added to donation history!"
+    });
   } catch (error) {
-    return res.status(error.statusCode || 500).json({ success: false, message: error.message });
+    console.error("completeOrganDonation Error:", error);
+    return res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message
+    });
   }
 };

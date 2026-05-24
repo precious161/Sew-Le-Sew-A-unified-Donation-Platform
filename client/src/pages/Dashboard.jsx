@@ -4,7 +4,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../context/ThemeContext';
 import Sidebar from '../components/layout/Sidebar';
 import NotificationHub from '../components/notifications/NotificationHub';
-import MatchAlertCard from '../components/matching/MatchAlertCard'; 
+import MatchAlertCard from '../components/matching/MatchAlertCard';
 import DonationService from '../services/DonationService';
 import ProfileService from '../services/ProfileService';
 import EventService from '../services/EventService';
@@ -44,7 +44,7 @@ const Dashboard = () => {
         DonationService.getHealthInfo().catch(() => ({ success: false })),
         isRecipient ? DonationService.getMyRequests().catch(() => ({ success: false, data: [] })) : Promise.resolve({ data: [] }),
         isDonor ? DonationService.getEligibilityHistory().catch(() => ({ success: false, data: [] })) : Promise.resolve({ data: [] }),
-        EventService.getPublicEvents().catch(() => ({ success: false, data: [] })),
+        isDonor ? EventService.getPublicEvents().catch(() => ({ success: false, data: [] })) : Promise.resolve({ data: [] }), // ONLY FOR DONORS
         MatchingService.getMyActiveMatch().catch(() => ({ success: false, hasActiveMatch: false })),
         isDonor ? api.get('/donations/donor/my-intents').catch(() => ({ data: [] })) : Promise.resolve({ data: [] })
       ]);
@@ -63,7 +63,7 @@ const Dashboard = () => {
 
       if (reqRes.success) setActiveRequests(reqRes.data || []);
       if (eventsRes.success) setEvents(eventsRes.data || []);
-      
+
       if (matchRes.success && matchRes.hasActiveMatch) {
         setActiveMatch(matchRes.data);
       } else {
@@ -86,9 +86,10 @@ const Dashboard = () => {
   }, [user, navigate, syncRegistryData]);
 
   const handleRSVP = async (eventId) => {
+    if (!user || user.Role !== 'Donor') return;
     try {
       await EventService.rsvpToEvent(eventId);
-      syncRegistryData(); 
+      syncRegistryData();
     } catch (error) {
       console.error("Failed to RSVP", error);
     }
@@ -98,11 +99,11 @@ const Dashboard = () => {
     if (!activeMatch) return;
     setActionLoading(true);
     try {
-      const category = activeMatch.donationType; 
+      const category = activeMatch.donationType;
       const res = await MatchingService.respondToMatch(category, matchId, accepted);
-      
+
       if (res.success) {
-        await syncRegistryData(); 
+        await syncRegistryData();
       }
     } catch (error) {
       console.error("Match Handshake Failed:", error);
@@ -142,7 +143,7 @@ const Dashboard = () => {
                 {isRecipient ? 'Recipient Coordination Node' : 'Donor Portal • Registry Node'}
              </h2>
           </div>
-          
+
           <div className="flex items-center gap-4">
             <button onClick={syncRegistryData} className="p-2 text-gray-400 hover:text-white transition-colors"><RefreshCw size={16}/></button>
             <NotificationHub isDarkMode={isDarkMode} />
@@ -168,16 +169,17 @@ const Dashboard = () => {
                 <ShieldCheck size={280} className={`absolute -right-20 -bottom-20 transition-opacity duration-700 ${canProceed ? 'opacity-10 text-blue-400' : 'opacity-5'}`} />
            </div>
 
-           {/* MATCH ALERT CARD - Friend's Feature */}
+           {/* MATCH ALERT CARD - Only for Donors */}
            {isDonor && activeMatch && activeMatch.status === 'Pending' && (
-             <MatchAlertCard 
-                match={activeMatch} 
+             <MatchAlertCard
+                match={activeMatch}
                 onAccept={() => handleMatchResponse(activeMatch.matchId, true)}
                 onDecline={() => handleMatchResponse(activeMatch.matchId, false)}
                 loading={actionLoading}
              />
            )}
 
+           {/* RECIPIENT: Live Request Tracking */}
            {isRecipient && activeRequests.length > 0 && (
              <div className="mb-12 space-y-6 mt-12 text-left">
                 <h3 className="text-xl font-black tracking-tighter uppercase italic text-[#111C44] dark:text-white mb-4">Live Request Tracking</h3>
@@ -208,6 +210,7 @@ const Dashboard = () => {
              </div>
            )}
 
+           {/* ACTION BUTTONS */}
            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-12">
                 <button onClick={() => navigate(isRecipient ? '/donations/recipient/health-info' : '/donations/donor/check')} className={`p-10 rounded-[55px] text-left border transition-all ${isDarkMode ? 'bg-white/5 border-white/5 text-white hover:bg-white/10' : 'bg-white border-gray-100 shadow-xl hover:-translate-y-1'}`}>
                     <div className="p-4 bg-blue-500/10 rounded-2xl w-fit mb-6 text-blue-500"><Activity size={28}/></div>
@@ -227,8 +230,8 @@ const Dashboard = () => {
                 </button>
            </div>
 
-           {/* EVENTS SECTION */}
-           {events.length > 0 && (
+           {/* EVENTS SECTION - ONLY FOR DONORS */}
+           {isDonor && events.length > 0 && (
              <div className="mt-16 animate-in fade-in slide-in-from-bottom-10 duration-1000 text-left">
                 <div className="flex items-center gap-3 mb-6">
                    <div className="bg-blue-600 p-2 rounded-xl text-white"><Calendar size={20} /></div>
@@ -266,7 +269,7 @@ const Dashboard = () => {
         </div>
       </main>
 
-      {/* YOURS: AI ChatBot */}
+      {/* AI ChatBot */}
       <ChatBot />
     </div>
   );

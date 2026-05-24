@@ -7,7 +7,18 @@ export const registerIntent = async (userId, data) => {
   const currentUser = await prisma.user.findUnique({ where: { id: userId } });
   if (!currentUser || currentUser.identityStatus !== "Verified") {
     const error = new Error("Identity Verification Required. Please upload your National ID/Passport to register a donation.");
-    error.statusCode = 403; // Forbidden
+    error.statusCode = 403;
+    throw error;
+  }
+
+  // NEW: Check if donor has health information (required for matching)
+  const healthInfo = await prisma.healthInformation.findUnique({
+    where: { userId },
+  });
+
+  if (!healthInfo) {
+    const error = new Error("Please complete your health profile (blood type, weight, height) before registering a donation intent. This information is required for donor-recipient matching.");
+    error.statusCode = 403;
     throw error;
   }
 
@@ -58,7 +69,7 @@ export const registerIntent = async (userId, data) => {
   // 4. Extra validation for In-Kind & Organ
   if (category === "In_Kind" || category === "Organ") {
     if (!itemType) {
-      const error = new Error("itemType is required for In-Kind and Organ donations.");
+      const error = new Error("Item type is required for In-Kind and Organ donations.");
       error.statusCode = 400;
       throw error;
     }
@@ -71,7 +82,6 @@ export const registerIntent = async (userId, data) => {
       category,
       plannedDate,
       location: location || "Red Cross Center, Addis Ababa",
-      // --- CHANGED: Organs go to PendingVerification ---
       status: category === "Organ" ? "PendingVerification" : "Active",
       itemType: (category === "In_Kind" || category === "Organ") ? itemType : null,
       quantity: (category === "In_Kind" || category === "Organ") ? quantity : null,
@@ -82,7 +92,7 @@ export const registerIntent = async (userId, data) => {
   // 6. Notify donor
   if (category === "Organ") {
     await prisma.notification.create({
-      data: { userId, message: `Your Organ Donation intent is under medical review by the Red Cross. You will be notified once verified.` },
+      data: { userId, message: `Your Organ Donation intent has been submitted and is under medical review by the Red Cross. You will be notified once verified.` },
     });
   } else {
     await prisma.notification.create({
@@ -90,24 +100,24 @@ export const registerIntent = async (userId, data) => {
     });
   }
 
-  // 7. Automatically trigger matching engine (Notice we do NOT trigger Organ here yet)
+  // 7. Automatically trigger matching engine
   if (category === "Blood") {
-    try { await runBloodMatching(); } catch (error) { console.error(error); }
+    try { await runBloodMatching(); } catch (error) { console.error("Blood matching error:", error); }
   } else if (category === "In_Kind") {
-    try { await runInKindMatching(); } catch (error) { console.error(error); }
+    try { await runInKindMatching(); } catch (error) { console.error("In-Kind matching error:", error); }
   }
 
   return newIntent;
 };
 
-// --- NEW: Admin verifies the Donor's Organ Intent ---
 export const verifyDonorIntent = async (adminId, intentId, data) => {
   const { approved, rejectionReason } = data;
   const intent = await prisma.donationIntent.findUnique({ where: { id: intentId } });
 
   if (!intent || intent.status !== "PendingVerification") {
     const error = new Error("Intent not found or not pending verification.");
-    error.statusCode = 400; throw error;
+    error.statusCode = 400;
+    throw error;
   }
 
   if (approved) {
@@ -117,11 +127,10 @@ export const verifyDonorIntent = async (adminId, intentId, data) => {
     });
 
     await prisma.notification.create({
-      data: { userId: intent.userId, message: `Your Organ Donation intent has been medically verified! You are now in the active matching pool.` },
+      data: { userId: intent.userId, message: `✅ Your Organ Donation intent has been medically verified! You are now in the active matching pool.` },
     });
 
-    // Trigger Organ Matching AFTER verification!
-    runOrganMatching().catch(console.error); // <-- NOW USING THE STATIC IMPORT
+    runOrganMatching().catch(console.error);
   } else {
     await prisma.donationIntent.update({
       where: { id: intentId },
@@ -129,31 +138,39 @@ export const verifyDonorIntent = async (adminId, intentId, data) => {
     });
 
     await prisma.notification.create({
-      data: { userId: intent.userId, message: `Your Organ Donation intent could not be verified. Reason: ${rejectionReason}` },
+      data: { userId: intent.userId, message: `❌ Your Organ Donation intent could not be verified. Reason: ${rejectionReason}` },
     });
   }
 };
 
 export const cancelIntent = async (userId, intentId) => {
   const intent = await prisma.donationIntent.findUnique({ where: { id: intentId } });
-  if (!intent) { const error = new Error("Intent not found."); error.statusCode = 404; throw error; }
-  if (intent.userId !== userId) { const error = new Error("Not authorized."); error.statusCode = 403; throw error; }
-
-  if (!["Active", "PendingVerification"].includes(intent.status)) {
-    const error = new Error(`Cannot cancel intent with status: ${intent.status}.`);
-    error.statusCode = 400; throw error;
+  if (!intent) {
+    const error = new Error("Intent not found.");
+    error.statusCode = 404;
+    throw error;
+  }
+  if (intent.userId !== userId) {
+    const error = new Error("Not authorized to cancel this intent.");
+    error.statusCode = 403;
+    throw error;
   }
 
-  const cancelled = await prisma.donationIntent.update({ where: { id: intentId }, data: { status: "Cancelled" }});
-  await prisma.notification.create({ data: { userId, message: `Your ${intent.category} donation intent has been cancelled.` }});
+  if (!["Active", "PendingVerification"].includes(intent.status)) {
+    const error = new Error(`Cannot cancel intent with status: ${intent.status}. Only Active or PendingVerification intents can be cancelled.`);
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const cancelled = await prisma.donationIntent.update({ where: { id: intentId }, data: { status: "Cancelled" } });
+  await prisma.notification.create({ data: { userId, message: `Your ${intent.category} donation intent has been cancelled.` } });
   return cancelled;
 };
 
 export const getMyIntents = async (userId) => {
-  return await prisma.donationIntent.findMany({ where: { userId }, orderBy: { createdAt: "desc" }});
+  return await prisma.donationIntent.findMany({ where: { userId }, orderBy: { createdAt: "desc" } });
 };
 
-// --- NEW: Admin gets all Intents pending verification ---
 export const getPendingIntents = async (page = 1, limit = 20) => {
   const skip = (page - 1) * limit;
 
@@ -173,7 +190,7 @@ export const getPendingIntents = async (page = 1, limit = 20) => {
           },
         },
       },
-      orderBy: { createdAt: "asc" }, // Oldest first
+      orderBy: { createdAt: "asc" },
     }),
     prisma.donationIntent.count({
       where: { status: "PendingVerification" },

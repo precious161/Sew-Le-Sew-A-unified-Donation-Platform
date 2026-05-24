@@ -281,6 +281,12 @@ model DonationRequest {
   rejectionReason   String?
   originalUrgency   UrgencyLevel?
 
+  // Financial Aid fields
+  financialAmount   Float?
+  financialPurpose  String?
+  bankName          String?
+  bankAccount       String?      // Bank account for fund transfer
+
   requestDate       DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
 
@@ -288,6 +294,7 @@ model DonationRequest {
   user           User          @relation(fields: [recipientId], references: [id])
   verifiedByUser User?         @relation("RequestVerifier", fields: [verifiedBy], references: [id])
   matches        Match[]
+
   @@index([status])
   @@index([donationType])
   @@index([urgencyLevel])

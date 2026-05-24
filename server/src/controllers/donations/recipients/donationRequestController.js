@@ -8,12 +8,35 @@ export const requestDonation = async (req, res) => {
   try {
     const userId = req.user.id;
 
+    // Log what we received
+    console.log('=== DONATION REQUEST CONTROLLER ===');
+    console.log('req.body:', req.body);
+    console.log('req.file:', req.file);
+    console.log('financialAmount from body:', req.body.financialAmount);
+    console.log('bankAccount from body:', req.body.bankAccount);
+
     // Merge body data with documentUrl from Cloudinary
-    // req.file is set by multer after successful upload
     const data = {
-      ...req.body,
+      donationType: req.body.donationType,
+      urgencyLevel: req.body.urgencyLevel,
+      hospitalName: req.body.hospitalName,
+      attendingDoctor: req.body.attendingDoctor,
+      notes: req.body.notes,
+      requiredBloodType: req.body.requiredBloodType,
+      organType: req.body.organType,
+      itemType: req.body.itemType,
+      itemQuantity: req.body.itemQuantity,
+      // Financial fields
+      financialAmount: req.body.financialAmount,
+      financialPurpose: req.body.financialPurpose,
+      bankAccount: req.body.bankAccount,
+      bankName: req.body.bankName,
+      quantity: req.body.quantity,
+      // Document from file upload
       documentUrl: req.file?.path || null,
     };
+
+    console.log('Combined data for service:', data);
 
     const request = await DonationRequestService.createDonationRequest(userId, data);
 
@@ -64,11 +87,14 @@ export const getPendingVerificationRequests = async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 20;
+    const { type } = req.query;
 
-    const result = await DonationRequestService.getPendingVerificationRequests(
-      page,
-      limit
-    );
+    const whereClause = { status: "PendingVerification" };
+    if (type === 'Financial') {
+      whereClause.donationType = "Financial";
+    }
+
+    const result = await DonationRequestService.getPendingVerificationRequests(page, limit, whereClause);
 
     return res.status(200).json({
       success: true,
@@ -79,6 +105,29 @@ export const getPendingVerificationRequests = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Failed to fetch pending verification requests.",
+    });
+  }
+};
+
+// ─────────────────────────────────────────
+// Admin: Get approved financial requests for distribution
+// ─────────────────────────────────────────
+export const getApprovedFinancialRequests = async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+
+    const result = await DonationRequestService.getApprovedFinancialRequests(page, limit);
+
+    return res.status(200).json({
+      success: true,
+      ...result,
+    });
+  } catch (error) {
+    console.error("getApprovedFinancialRequests Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch approved financial requests.",
     });
   }
 };
@@ -97,7 +146,6 @@ export const verifyDonationRequest = async (req, res) => {
 
     await DonationRequestService.verifyDonationRequest(adminId, id, { approved, correctedUrgencyLevel, rejectionReason });
 
-    // --- AUDIT LOG ---
     await AuditService.createLogEntry(adminId, approved ? "Approved Donation Request" : "Rejected Donation Request", "DonationRequest", approved ? `Verified Urgency: ${correctedUrgencyLevel || "Standard"}` : rejectionReason);
 
     return res.status(200).json({ success: true, message: approved ? "Donation request approved." : "Donation request rejected." });
@@ -106,6 +154,9 @@ export const verifyDonationRequest = async (req, res) => {
   }
 };
 
+// ─────────────────────────────────────────
+// Recipient: Get my requests
+// ─────────────────────────────────────────
 export const getMyRequests = async (req, res) => {
   try {
     const requests = await DonationRequestService.getMyRequests(req.user.id);

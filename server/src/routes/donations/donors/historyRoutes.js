@@ -6,7 +6,7 @@ import * as HistoryController from "../../../controllers/donations/donors/histor
 const router = Router();
 
 // ── Donor Routes ──
-router.get("/my-histoy", protect, authorize("Donor"), HistoryController.getMyDonationHistory);
+router.get("/my-history", protect, authorize("Donor"), HistoryController.getMyDonationHistory);
 
 // ── Admin Routes ──
 router.get("/all-history", protect, authorize("Red_Cross_Admin"), HistoryController.getAllDonationHistory);

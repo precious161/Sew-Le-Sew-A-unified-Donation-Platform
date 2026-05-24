@@ -1,6 +1,28 @@
 import * as FinancialService from "../../services/matching/financialService.js";
 import * as AuditService from "../../services/security/auditService.js";
 
+// Check if donor is eligible to contribute
+export const checkEligibility = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { identityStatus: true, Role: true }
+    });
+
+    const isVerified = user?.identityStatus === 'Verified' && user?.Role === 'Donor';
+
+    return res.status(200).json({
+      success: true,
+      isVerified,
+      message: isVerified ? 'Eligible to contribute' : 'Identity verification required'
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 // ─────────────────────────────────────────
 // Donor: Submit a contribution pledge
 // ─────────────────────────────────────────
@@ -20,8 +42,7 @@ export const submitContribution = async (req, res) => {
 
     return res.status(201).json({
       success: true,
-      message:
-        "Contribution pledge submitted successfully. The Red Cross will verify your payment shortly.",
+      message: "💰 Contribution pledge submitted successfully. The Red Cross will verify your payment shortly.",
       data: contribution,
     });
   } catch (error) {
@@ -139,17 +160,40 @@ export const reviewContribution = async (req, res) => {
     const { id } = req.params;
     const { approved, rejectionReason } = req.body;
 
-    if (typeof approved !== "boolean") return res.status(400).json({ success: false, message: "Field 'approved' must be a boolean." });
-    if (!approved && !rejectionReason) return res.status(400).json({ success: false, message: "Rejection reason is required." });
+    if (typeof approved !== "boolean") {
+      return res.status(400).json({
+        success: false,
+        message: "Field 'approved' must be a boolean."
+      });
+    }
+
+    if (!approved && !rejectionReason) {
+      return res.status(400).json({
+        success: false,
+        message: "Rejection reason is required when rejecting a contribution."
+      });
+    }
 
     await FinancialService.reviewContribution(adminId, id, { approved, rejectionReason });
 
     // --- AUDIT LOG ---
-    await AuditService.createLogEntry(adminId, approved ? "Verified Financial Contribution" : "Rejected Financial Contribution", "FinancialContribution", approved ? "Verified Receipt" : rejectionReason);
+    await AuditService.createLogEntry(
+      adminId,
+      approved ? "Verified Financial Contribution" : "Rejected Financial Contribution",
+      "FinancialContribution",
+      approved ? "Verified Receipt" : rejectionReason
+    );
 
-    return res.status(200).json({ success: true, message: approved ? "Contribution verified successfully." : "Contribution rejected." });
+    return res.status(200).json({
+      success: true,
+      message: approved ? "✅ Contribution verified successfully." : "❌ Contribution rejected."
+    });
   } catch (error) {
-    return res.status(error.statusCode || 500).json({ success: false, message: error.message });
+    console.error("reviewContribution Error:", error);
+    return res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || "Failed to review contribution."
+    });
   }
 };
 
@@ -162,18 +206,37 @@ export const allocateContribution = async (req, res) => {
     const { id } = req.params;
     const { allocationNote } = req.body;
 
-    if (!allocationNote) return res.status(400).json({ success: false, message: "Allocation note is required." });
+    if (!allocationNote) {
+      return res.status(400).json({
+        success: false,
+        message: "Allocation note is required."
+      });
+    }
 
     const contribution = await FinancialService.allocateContribution(adminId, id, allocationNote);
 
     // --- AUDIT LOG ---
-    await AuditService.createLogEntry(adminId, "Allocated Financial Contribution", "FinancialContribution", `Note: ${allocationNote}`);
+    await AuditService.createLogEntry(
+      adminId,
+      "Allocated Financial Contribution",
+      "FinancialContribution",
+      `Note: ${allocationNote}`
+    );
 
-    return res.status(200).json({ success: true, message: "Contribution allocated successfully.", data: contribution });
+    return res.status(200).json({
+      success: true,
+      message: "Contribution allocated successfully.",
+      data: contribution
+    });
   } catch (error) {
-    return res.status(error.statusCode || 500).json({ success: false, message: error.message });
+    console.error("allocateContribution Error:", error);
+    return res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || "Failed to allocate contribution."
+    });
   }
 };
+
 // ─────────────────────────────────────────
 // Admin: Distribute funds to recipient
 // ─────────────────────────────────────────
@@ -183,15 +246,32 @@ export const distributeToRecipient = async (req, res) => {
     const { contributionId, requestId } = req.params;
     const { amount, note } = req.body;
 
-    if (!amount || !note) return res.status(400).json({ success: false, message: "Amount and note are required." });
+    if (!amount || !note) {
+      return res.status(400).json({
+        success: false,
+        message: "Amount and note are required."
+      });
+    }
 
     await FinancialService.distributeToRecipient(adminId, contributionId, requestId, amount, note);
 
     // --- AUDIT LOG ---
-    await AuditService.createLogEntry(adminId, "Distributed Financial Contribution", "DonationRequest", `Amount: ${amount}, Note: ${note}`);
+    await AuditService.createLogEntry(
+      adminId,
+      "Distributed Financial Contribution",
+      "DonationRequest",
+      `Amount: ${amount}, Note: ${note}`
+    );
 
-    return res.status(200).json({ success: true, message: "Funds distributed to recipient successfully." });
+    return res.status(200).json({
+      success: true,
+      message: "✅ Funds distributed to recipient successfully."
+    });
   } catch (error) {
-    return res.status(error.statusCode || 500).json({ success: false, message: error.message });
+    console.error("distributeToRecipient Error:", error);
+    return res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || "Failed to distribute funds."
+    });
   }
 };

@@ -118,8 +118,8 @@ export const respondToInKindMatch = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: accepted
-        ? "You have accepted the match. Please proceed to the Red Cross Center with the items."
-        : "You have declined the match. We will notify you of future matches.",
+        ? "✅ You have accepted the match. Please proceed to the Red Cross Center with the items."
+        : "❌ You have declined the match. We will notify you of future matches.",
     });
   } catch (error) {
     console.error("respondToInKindMatch Error:", error);
@@ -142,10 +142,22 @@ export const completeInKindDonation = async (req, res) => {
     await InKindMatchingService.confirmInKindCompletion(matchId, adminId);
 
     // --- AUDIT LOG ---
-    await AuditService.createLogEntry(adminId, "Completed In-Kind Donation", "Match", `Match ID: ${matchId}`);
+    await AuditService.createLogEntry(
+      adminId,
+      "Completed In-Kind Donation",
+      "Match",
+      `Match ID: ${matchId}`
+    );
 
-    return res.status(200).json({ success: true, message: "In-Kind donation marked as completed successfully." });
+    return res.status(200).json({
+      success: true,
+      message: "✅ In-Kind donation marked as completed successfully."
+    });
   } catch (error) {
-    return res.status(error.statusCode || 500).json({ success: false, message: error.message });
+    console.error("completeInKindDonation Error:", error);
+    return res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || "Failed to complete donation."
+    });
   }
 };

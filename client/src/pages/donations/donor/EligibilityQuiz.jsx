@@ -22,7 +22,7 @@ const EligibilityQuiz = () => {
   const [answers, setAnswers] = useState({
     MIN_AGE: '',
     MIN_WEIGHT: '',
-    BLOOD_TYPE: '', // <-- ADDED: So the backend can build the smart profile
+    BLOOD_TYPE: '',
     HEMOGLOBIN_MIN: '',
     DONATION_GAP_DAYS: '',
     COERCION_FREE: 'true',
@@ -58,7 +58,6 @@ const EligibilityQuiz = () => {
     e.preventDefault();
     setLoading(true);
 
-    // Clean up answers (remove empty strings so Zod validation on backend doesn't crash)
     const cleanAnswers = Object.fromEntries(Object.entries(answers).filter(([_, v]) => v !== ''));
 
     try {
@@ -116,10 +115,10 @@ const EligibilityQuiz = () => {
           <button onClick={toggleTheme} className="p-3.5 rounded-2xl bg-white dark:bg-white/5 dark:text-white">{isDarkMode ? <Sun size={20} className="text-yellow-400" /> : <Moon size={20} />}</button>
         </div>
 
+        {/* REMOVED Financial tab - Only Blood, Organ, Supplies */}
         <div className="flex flex-wrap gap-4 mb-10 overflow-x-auto no-scrollbar pb-2">
             <CategoryTab active={category === 'Blood'} label="Blood" icon={<Droplets size={14}/>} onClick={() => setCategory('Blood')} />
             <CategoryTab active={category === 'Organ'} label="Organ" icon={<Heart size={14}/>} onClick={() => setCategory('Organ')} />
-            <CategoryTab active={category === 'Financial'} label="Financial" icon={<Banknote size={14}/>} onClick={() => setCategory('Financial')} />
             <CategoryTab active={category === 'In_Kind'} label="Supplies" icon={<Box size={14}/>} onClick={() => setCategory('In_Kind')} />
         </div>
 
@@ -156,10 +155,6 @@ const EligibilityQuiz = () => {
                     <div className="grid grid-cols-2 gap-2 bg-gray-50 dark:bg-[#0b1121] p-2 rounded-2xl"><BooleanBtn active={answers.COERCION_FREE === 'true'} label="FREELY GIVEN" onClick={() => setAnswers({...answers, COERCION_FREE: 'true'})} /><BooleanBtn active={answers.COERCION_FREE === 'false'} label="COERCED" onClick={() => setAnswers({...answers, COERCION_FREE: 'false'})} /></div>
                   </div>
                </div>
-             )}
-
-             {category === 'Financial' && (
-                <Question label="Estimated Contribution (ETB)" value={answers.MIN_AMOUNT} onChange={(v) => setAnswers({...answers, MIN_AMOUNT: v})} placeholder="ETB" />
              )}
 
              {category === 'In_Kind' && (

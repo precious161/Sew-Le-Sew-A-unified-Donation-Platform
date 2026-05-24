@@ -1,4 +1,3 @@
-// cloudinary.js
 import { v2 as cloudinary } from "cloudinary";
 import { CloudinaryStorage } from "multer-storage-cloudinary";
 import multer from "multer";
@@ -29,7 +28,7 @@ const storage = new CloudinaryStorage({
 export const upload = multer({
   storage,
   limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB max
+    fileSize: 5 * 1024 * 1024, // 5MB limit - Added for security
   },
   fileFilter: (req, file, cb) => {
     const allowedMimes = [
@@ -42,10 +41,7 @@ export const upload = multer({
     if (allowedMimes.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(
-        new Error("Invalid file type. Only PDF, JPG, and PNG are allowed."),
-        false
-      );
+      cb(new Error("Invalid file type. Only PDF, JPG, and PNG are allowed."), false);
     }
   },
 });

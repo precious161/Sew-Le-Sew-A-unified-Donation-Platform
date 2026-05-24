@@ -3,16 +3,16 @@ import { useNavigate } from 'react-router-dom';
 import Sidebar from '../../components/layout/Sidebar';
 import DonationService from '../../services/DonationService';
 import { useTheme } from '../../context/ThemeContext';
-import { 
-  FileText, CheckCircle, XCircle, ExternalLink, 
+import {
+  FileText, CheckCircle, XCircle, ExternalLink,
   ShieldCheck, ArrowLeft, X, Droplets, Stethoscope, Box, AlertCircle,
-  Activity, Heart, User
+  Activity, Heart, User, Banknote
 } from 'lucide-react';
 
 const RequestVerification = () => {
   const navigate = useNavigate();
   const { toggleTheme } = useTheme();
-  
+
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedRequest, setSelectedRequest] = useState(null);
@@ -102,7 +102,7 @@ const RequestVerification = () => {
               <div key={req.id} className="p-8 rounded-[45px] bg-white/5 border border-white/5 flex flex-col md:flex-row justify-between items-center gap-8 group hover:bg-white/[0.08] transition-all relative overflow-hidden shadow-xl text-left">
                 <div className="flex gap-8 items-center flex-1">
                     <div className="w-16 h-16 rounded-2xl bg-[#0b1121] shadow-inner flex items-center justify-center text-blue-500 border border-white/5">
-                        {req.donationType === 'Blood' ? <Droplets size={28}/> : req.donationType === 'Organ' ? <Stethoscope size={28}/> : <Box size={28}/>}
+                        {req.donationType === 'Blood' ? <Droplets size={28}/> : req.donationType === 'Organ' ? <Stethoscope size={28}/> : req.donationType === 'Financial' ? <Banknote size={28} /> : <Box size={28}/>}
                     </div>
                     <div className="text-left">
                         <h4 className="text-white font-black text-xl tracking-tight mb-1">{req.user?.FirstName} {req.user?.LastName}</h4>
@@ -121,7 +121,7 @@ const RequestVerification = () => {
         {selectedRequest && (
           <div className="fixed inset-0 z-[250] flex items-center justify-center p-6 bg-[#0b1121]/95 backdrop-blur-xl animate-in fade-in duration-300 text-left">
              <div className="bg-white rounded-[55px] p-12 max-w-4xl w-full shadow-2xl relative border border-white/10 overflow-y-auto max-h-[90vh]">
-                
+
                 {message.text && (
                   <div className={`absolute top-0 left-0 w-full p-6 text-center animate-in slide-in-from-top duration-300 z-50 ${message.type === 'success' ? 'bg-green-500 text-white' : 'bg-medical-red text-white'}`}>
                     <div className="flex items-center justify-center gap-3 font-black uppercase text-xs tracking-widest">
@@ -138,7 +138,9 @@ const RequestVerification = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-12 mb-10">
                     {/* Documentation Side */}
                     <div>
-                        <p className="text-[10px] font-black text-[#1B2559] uppercase mb-4 tracking-widest italic">Medical Documentation</p>
+                        <p className="text-[10px] font-black text-[#1B2559] uppercase mb-4 tracking-widest italic">
+                          {selectedRequest.donationType === 'Financial' ? "Medical / Financial Proof" : "Medical Documentation"}
+                        </p>
                         <a href={selectedRequest.documentUrl} target="_blank" rel="noreferrer" className="group relative block rounded-[35px] overflow-hidden border-2 border-dashed border-gray-200 bg-gray-50 h-64 shadow-inner">
                             <img src={selectedRequest.documentUrl} alt="Proof" className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-opacity" />
                             <div className="absolute inset-0 flex items-center justify-center bg-[#111C44]/50 transition-opacity group-hover:opacity-0">
@@ -149,11 +151,10 @@ const RequestVerification = () => {
                         </a>
                     </div>
 
-                    {/* Metadata Side (RESTORED & IMPROVED) */}
+                    {/* Metadata Side */}
                     <div className="space-y-8">
                         <DetailItem label="Recipient Identity" value={`${selectedRequest.user?.FirstName} ${selectedRequest.user?.LastName}`} icon={<User size={14}/>} />
-                        
-                        {/* SPECIFIC CATEGORY & TYPE SECTION */}
+
                         <div className="grid grid-cols-2 gap-4">
                             <div>
                                 <p className="text-[9px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2 italic">Category</p>
@@ -163,14 +164,30 @@ const RequestVerification = () => {
                             </div>
                             <div>
                                 <p className="text-[9px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2 italic">Requirement</p>
-                                <p className="text-xs font-black text-[#1B2559] uppercase">
-                                    {selectedRequest.requiredBloodType || selectedRequest.organType || selectedRequest.itemType || 'General'}
+                                <p className="text-xs font-black text-[#1B2559] uppercase line-clamp-1">
+                                    {selectedRequest.donationType === 'Financial'
+                                      ? (selectedRequest.financialPurpose || 'Financial Aid')
+                                      : (selectedRequest.requiredBloodType || selectedRequest.organType || selectedRequest.itemType || 'General')
+                                    }
                                 </p>
                             </div>
                         </div>
 
                         <DetailItem label="Hospital Center" value={selectedRequest.hospitalName} icon={<Activity size={14}/>} />
-                        
+
+                        {/* UPDATED: Bank Account AND Bank Name Display for Financial Requests */}
+                        {selectedRequest.donationType === 'Financial' && selectedRequest.bankAccount && (
+                          <div className="mt-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                            <div className="flex items-center gap-2 mb-1">
+                              <Banknote size={14} className="text-blue-500" />
+                              <p className="text-[9px] font-black text-blue-600 dark:text-blue-400">Bank Account for Transfer</p>
+                            </div>
+                            <p className="text-sm font-black break-all">
+                              {selectedRequest.bankName ? `${selectedRequest.bankName} - ` : ''}{selectedRequest.bankAccount}
+                            </p>
+                          </div>
+                        )}
+
                         <div className="flex justify-between items-end border-t border-gray-50 pt-6">
                             <div>
                                 <p className="text-[9px] font-black text-gray-400 uppercase tracking-[0.2em] mb-3 italic">Urgency Assessment</p>
@@ -181,8 +198,15 @@ const RequestVerification = () => {
                                 </div>
                             </div>
                             <div className="text-right">
-                                <p className="text-[9px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2 italic">Quantity</p>
-                                <p className="text-lg font-black text-[#1B2559]">{selectedRequest.itemQuantity || selectedRequest.quantity || 1} UNIT(S)</p>
+                                <p className="text-[9px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2 italic">
+                                  {selectedRequest.donationType === 'Financial' ? 'Amount Requested' : 'Quantity'}
+                                </p>
+                                <p className="text-lg font-black text-[#1B2559]">
+                                  {selectedRequest.donationType === 'Financial'
+                                    ? `${selectedRequest.financialAmount || selectedRequest.quantity} ETB`
+                                    : `${selectedRequest.itemQuantity || selectedRequest.quantity || 1} UNIT(S)`
+                                  }
+                                </p>
                             </div>
                         </div>
                     </div>
@@ -190,7 +214,7 @@ const RequestVerification = () => {
 
                 <div className="space-y-3 mb-10">
                     <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-4 italic text-left block">Clinical Rejection Reason</label>
-                    <textarea 
+                    <textarea
                         className="w-full p-6 bg-gray-50 rounded-[30px] border border-gray-100 outline-none text-sm text-[#1B2559] font-medium resize-none h-32 shadow-inner"
                         placeholder="State reason if declining this case..."
                         value={rejectionReason}
