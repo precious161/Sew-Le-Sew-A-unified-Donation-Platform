@@ -22,12 +22,13 @@ import AdminIdentities from './pages/admin/AdminIdentities';
 import RequestVerification from './pages/admin/RequestVerification';
 import IntentVerification from './pages/admin/IntentVerification';
 import AdminEvents from './pages/admin/AdminEvents';
-import AIAnalytics from './pages/admin/AIAnalytics';  // NEW: AI Analytics
+import AIAnalytics from './pages/admin/AIAnalytics';        //  AI Analytics
+import AdminMatches from './pages/admin/AdminMatches';      //  Matching Management
 
 // Recipient Subsystem
 import HealthInfo from './pages/donations/recipient/HealthInfo';
 import CreateRequest from './pages/donations/recipient/CreateRequest';
-import MyRequests from './pages/donations/recipient/MyRequests';
+import MyRequests from './pages/donations/recipient/MyRequests';  //
 
 // Donor Subsystem
 import EligibilityQuiz from './pages/donations/donor/EligibilityQuiz';
@@ -47,109 +48,171 @@ function App() {
       <AuthProvider>
         <BrowserRouter>
           <Routes>
-            {/* Public Routes */}
+            {/* ===== PUBLIC ROUTES ===== */}
             <Route path="/" element={<LandingPage />} />
             <Route path="/events" element={<EventsPage />} />
             <Route path="/platform" element={<PlatformPage />} />
             <Route path="/signup" element={<SignupPage />} />
             <Route path="/login" element={<LoginPage />} />
 
-            {/* Protected User Routes */}
-            <Route path="/dashboard" element={
-              <ProtectedRoute allowedRoles={['Donor', 'Recipient', 'Red_Cross_Admin']}>
-                <HomeRedirect />
-              </ProtectedRoute>
-            } />
+            {/* ===== PROTECTED USER ROUTES ===== */}
+            <Route 
+              path="/dashboard" 
+              element={
+                <ProtectedRoute allowedRoles={['Donor', 'Recipient', 'Red_Cross_Admin']}>
+                  <HomeRedirect />
+                </ProtectedRoute>
+              } 
+            />
 
-            <Route path="/profile" element={
-              <ProtectedRoute allowedRoles={['Donor', 'Recipient', 'Red_Cross_Admin']}>
-                <Profile />
-              </ProtectedRoute>
-            } />
+            <Route 
+              path="/profile" 
+              element={
+                <ProtectedRoute allowedRoles={['Donor', 'Recipient', 'Red_Cross_Admin']}>
+                  <Profile />
+                </ProtectedRoute>
+              } 
+            />
 
-            {/* Recipient Routes */}
-            <Route path="/donations/recipient/health-info" element={
-              <ProtectedRoute allowedRoles={['Recipient']}>
-                <HealthInfo />
-              </ProtectedRoute>
-            } />
-            <Route path="/donations/recipient/request" element={
-              <ProtectedRoute allowedRoles={['Recipient']}>
-                <CreateRequest />
-              </ProtectedRoute>
-            } />
-            <Route path="/recipient/my-requests" element={
-              <ProtectedRoute allowedRoles={['Recipient']}>
-                <MyRequests />
-              </ProtectedRoute>
-            } />
+            {/* ===== RECIPIENT ROUTES ===== */}
+            <Route 
+              path="/donations/recipient/health-info" 
+              element={
+                <ProtectedRoute allowedRoles={['Recipient']}>
+                  <HealthInfo />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/donations/recipient/request" 
+              element={
+                <ProtectedRoute allowedRoles={['Recipient']}>
+                  <CreateRequest />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/recipient/my-requests" 
+              element={
+                <ProtectedRoute allowedRoles={['Recipient']}>
+                  <MyRequests />
+                </ProtectedRoute>
+              } 
+            />
 
-            {/* Donor Routes */}
-            <Route path="/donations/donor/check" element={
-              <ProtectedRoute allowedRoles={['Donor']}>
-                <EligibilityQuiz />
-              </ProtectedRoute>
-            } />
-            <Route path="/donations/donor/register-intent" element={
-              <ProtectedRoute allowedRoles={['Donor']}>
-                <RegisterIntent />
-              </ProtectedRoute>
-            } />
-            <Route path="/donations/donor/events" element={
-              <ProtectedRoute allowedRoles={['Donor']}>
-                <DonorEvents />
-              </ProtectedRoute>
-            } />
-            <Route path="/donations/donor/history" element={
-              <ProtectedRoute allowedRoles={['Donor']}>
-                <DonationHistory />
-              </ProtectedRoute>
-            } />
+            {/* ===== DONOR ROUTES ===== */}
+            <Route 
+              path="/donations/donor/check" 
+              element={
+                <ProtectedRoute allowedRoles={['Donor']}>
+                  <EligibilityQuiz />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/donations/donor/register-intent" 
+              element={
+                <ProtectedRoute allowedRoles={['Donor']}>
+                  <RegisterIntent />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/donations/donor/events" 
+              element={
+                <ProtectedRoute allowedRoles={['Donor']}>
+                  <DonorEvents />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/donations/donor/history" 
+              element={
+                <ProtectedRoute allowedRoles={['Donor']}>
+                  <DonationHistory />
+                </ProtectedRoute>
+              } 
+            />
 
-            {/* Admin System Routes */}
-            <Route path="/admin" element={
-              <ProtectedRoute allowedRoles={['Red_Cross_Admin']}>
-                <AdminDashboard />
-              </ProtectedRoute>
-            } />
-            <Route path="/admin/donors" element={
-              <ProtectedRoute allowedRoles={['Red_Cross_Admin']}>
-                <AdminDonors />
-              </ProtectedRoute>
-            } />
-            <Route path="/admin/recipients" element={
-              <ProtectedRoute allowedRoles={['Red_Cross_Admin']}>
-                <AdminRecipients />
-              </ProtectedRoute>
-            } />
-            <Route path="/admin/identities" element={
-              <ProtectedRoute allowedRoles={['Red_Cross_Admin']}>
-                <AdminIdentities />
-              </ProtectedRoute>
-            } />
-            <Route path="/admin/requests" element={
-              <ProtectedRoute allowedRoles={['Red_Cross_Admin']}>
-                <RequestVerification />
-              </ProtectedRoute>
-            } />
-            <Route path="/admin/intents" element={
-              <ProtectedRoute allowedRoles={['Red_Cross_Admin']}>
-                <IntentVerification />
-              </ProtectedRoute>
-            } />
-            <Route path="/admin/events" element={
-              <ProtectedRoute allowedRoles={['Red_Cross_Admin']}>
-                <AdminEvents />
-              </ProtectedRoute>
-            } />
-            {/* NEW: AI Analytics Route */}
-            <Route path="/admin/analytics" element={
-              <ProtectedRoute allowedRoles={['Red_Cross_Admin']}>
-                <AIAnalytics />
-              </ProtectedRoute>
-            } />
+            {/* ===== ADMIN SYSTEM ROUTES ===== */}
+            <Route 
+              path="/admin" 
+              element={
+                <ProtectedRoute allowedRoles={['Red_Cross_Admin']}>
+                  <AdminDashboard />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/admin/donors" 
+              element={
+                <ProtectedRoute allowedRoles={['Red_Cross_Admin']}>
+                  <AdminDonors />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/admin/recipients" 
+              element={
+                <ProtectedRoute allowedRoles={['Red_Cross_Admin']}>
+                  <AdminRecipients />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/admin/identities" 
+              element={
+                <ProtectedRoute allowedRoles={['Red_Cross_Admin']}>
+                  <AdminIdentities />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/admin/requests" 
+              element={
+                <ProtectedRoute allowedRoles={['Red_Cross_Admin']}>
+                  <RequestVerification />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/admin/intents" 
+              element={
+                <ProtectedRoute allowedRoles={['Red_Cross_Admin']}>
+                  <IntentVerification />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/admin/events" 
+              element={
+                <ProtectedRoute allowedRoles={['Red_Cross_Admin']}>
+                  <AdminEvents />
+                </ProtectedRoute>
+              } 
+            />
+            
+            {/*  AI Analytics Route */}
+            <Route 
+              path="/admin/analytics" 
+              element={
+                <ProtectedRoute allowedRoles={['Red_Cross_Admin']}>
+                  <AIAnalytics />
+                </ProtectedRoute>
+              } 
+            />
 
-            {/* Catch all */}
+            {/*  Matching Management Route */}
+            <Route 
+              path="/admin/matches" 
+              element={
+                <ProtectedRoute allowedRoles={['Red_Cross_Admin']}>
+                  <AdminMatches />
+                </ProtectedRoute>
+              } 
+            />
+
+            {/* ===== CATCH ALL ===== */}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </BrowserRouter>

@@ -15,6 +15,7 @@ const DonationHistory = () => {
     const fetchHistory = async () => {
       try {
         const res = await DonationService.getDonationHistory();
+        // Backend returns data inside the 'data' key
         if (res.success) setDonations(res.data);
       } catch (err) {
         console.error("History fetch failed", err);
@@ -39,7 +40,7 @@ const DonationHistory = () => {
           </button>
           <div>
             <h1 className="text-4xl font-black text-[#111C44] dark:text-white tracking-tighter uppercase italic leading-none">Donation History</h1>
-            <p className="text-gray-400 text-[10px] font-bold uppercase tracking-[0.3em] mt-1">Registry Record • Donor Node</p>
+            <p className="text-gray-400 text-[10px] font-bold uppercase tracking-[0.3em] mt-1 italic">Registry Record • Donor Node</p>
           </div>
         </header>
 
@@ -48,7 +49,7 @@ const DonationHistory = () => {
             <div className="animate-pulse text-gray-300 font-black uppercase tracking-[0.5em]">Synchronizing Records...</div>
           </div>
         ) : donations.length === 0 ? (
-          <div className="flex-1 flex flex-col items-center justify-center opacity-30">
+          <div className="flex-1 flex flex-col items-center justify-center opacity-30 mt-20">
             <History size={80} className="mb-4 text-gray-400" />
             <p className="font-black uppercase tracking-widest text-xs">No entries found in your registry</p>
           </div>
@@ -58,31 +59,31 @@ const DonationHistory = () => {
               <div 
                 key={item.id} 
                 className={`p-8 rounded-[45px] shadow-xl border flex items-center justify-between transition-all hover:-translate-y-1 ${
-                  isDarkMode ? 'bg-white/5 border-white/5 text-white' : 'bg-white border-gray-100'
+                  isDarkMode ? 'bg-white/5 border-white/5 text-white shadow-black/40' : 'bg-white border-gray-100'
                 }`}
               >
                 <div className="flex items-center gap-6">
-                  <div className="p-4 bg-medical-red/10 rounded-2xl text-medical-red">
+                  <div className="p-4 bg-medical-red/10 rounded-2xl text-medical-red shadow-inner">
                     <Droplets size={32} />
                   </div>
                   <div>
                     <h3 className="text-xl font-black uppercase italic tracking-tight">{item.donationType} Donation</h3>
                     <div className="flex gap-6 mt-2">
                        <span className="flex items-center gap-2 text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                         <Calendar size={14}/> {new Date(item.donationDate).toLocaleDateString()}
+                         <Calendar size={14} className="text-blue-500"/> {new Date(item.donationDate).toLocaleDateString('en-GB')}
                        </span>
                        <span className="flex items-center gap-2 text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                         <MapPin size={14}/> {item.location || 'Red Cross Center'}
+                         <MapPin size={14} className="text-medical-red"/> {item.location || 'Red Cross Center'}
                        </span>
                     </div>
                   </div>
                 </div>
 
                 <div className="flex flex-col items-end gap-2">
-                   <div className="px-5 py-2 bg-green-500/10 text-green-500 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
+                   <div className="px-5 py-2 bg-green-500/10 text-green-500 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 border border-green-500/20">
                       <CheckCircle size={14}/> {item.status}
                    </div>
-                   {item.quantity && <p className="text-[10px] font-bold text-gray-400 uppercase mr-2">Qty: {item.quantity}</p>}
+                   {item.quantity && <p className="text-[10px] font-bold text-gray-500 uppercase mr-2 tracking-tighter">Units: {item.quantity}</p>}
                 </div>
               </div>
             ))}
