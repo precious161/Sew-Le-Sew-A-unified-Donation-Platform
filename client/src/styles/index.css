@@ -1,6 +1,6 @@
 @import "tailwindcss/base";
 @import "tailwindcss/components";
-@import "tailwindcss/utilities";  
+@import "tailwindcss/utilities";
 
 @layer components {
   .btn-primary {
@@ -18,7 +18,7 @@
 /* 2. Style the scrollbar track */
 /* Change: set background to transparent so it blends with the glass card */
 .custom-scrollbar::-webkit-scrollbar-track {
-  background: transparent; 
+  background: transparent;
   border-radius: 10px;
   margin: 10px 0; /* Keeps the thumb away from the very edges */
 }
@@ -38,4 +38,16 @@
 .custom-scrollbar {
   scrollbar-width: thin;
   scrollbar-color: #cbd5e1 transparent;
+}
+
+/* Reserve space for fixed chat window at bottom */
+body {
+  padding-bottom: 80px;
+}
+
+/* On smaller screens, reduce padding */
+@media (max-width: 768px) {
+  body {
+    padding-bottom: 100px;
+  }
 }

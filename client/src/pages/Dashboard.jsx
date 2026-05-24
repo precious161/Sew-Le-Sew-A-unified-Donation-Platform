@@ -7,9 +7,10 @@ import NotificationHub from '../components/notifications/NotificationHub';
 import MatchAlertCard from '../components/matching/MatchAlertCard'; 
 import DonationService from '../services/DonationService';
 import ProfileService from '../services/ProfileService';
-import EventService from '../services/EventService'; 
+import EventService from '../services/EventService';
 import MatchingService from '../services/MatchingService';
 import api from '../api/axios';
+import ChatBot from '../components/ai/ChatBot';
 import {
   Sun, Moon, ShieldCheck, Activity, Plus, Heart, Lock,
   CheckCircle, Clock, Search, HeartPulse, ArrowRight,
@@ -93,12 +94,10 @@ const Dashboard = () => {
     }
   };
 
-  // --- FIXED HANDLER: No longer hardcoded to 'blood' ---
   const handleMatchResponse = async (matchId, accepted) => {
     if (!activeMatch) return;
     setActionLoading(true);
     try {
-      // DYNAMIC CATEGORY: Gets 'Blood', 'Organ', or 'In_Kind' from the match object
       const category = activeMatch.donationType; 
       const res = await MatchingService.respondToMatch(category, matchId, accepted);
       
@@ -160,7 +159,7 @@ const Dashboard = () => {
            }`}>
                 <div className="relative z-10 text-left">
                   <h2 className="text-7xl font-black italic tracking-tighter leading-none">Welcome, <br /> {user?.FirstName}!</h2>
-                  <div className="flex gap-4 mt-8">
+                  <div className="flex gap-4 mt-8 flex-wrap">
                      <StatusBadge active={isVerified} variant={isPending ? 'warning' : 'danger'} label={isVerified ? "ID Verified" : isPending ? "ID Under Review" : "Identity Missing"} />
                      {isRecipient && <StatusBadge active={status.hasHealthData} label={status.hasHealthData ? "Medical Profile Synced" : "Medical Missing"} />}
                      {isDonor && <StatusBadge active={status.passedQuiz} label={status.passedQuiz ? "Quiz Passed" : "Quiz Pending"} />}
@@ -169,6 +168,7 @@ const Dashboard = () => {
                 <ShieldCheck size={280} className={`absolute -right-20 -bottom-20 transition-opacity duration-700 ${canProceed ? 'opacity-10 text-blue-400' : 'opacity-5'}`} />
            </div>
 
+           {/* MATCH ALERT CARD - Friend's Feature */}
            {isDonor && activeMatch && activeMatch.status === 'Pending' && (
              <MatchAlertCard 
                 match={activeMatch} 
@@ -227,6 +227,7 @@ const Dashboard = () => {
                 </button>
            </div>
 
+           {/* EVENTS SECTION */}
            {events.length > 0 && (
              <div className="mt-16 animate-in fade-in slide-in-from-bottom-10 duration-1000 text-left">
                 <div className="flex items-center gap-3 mb-6">
@@ -264,6 +265,9 @@ const Dashboard = () => {
            )}
         </div>
       </main>
+
+      {/* YOURS: AI ChatBot */}
+      <ChatBot />
     </div>
   );
 };
