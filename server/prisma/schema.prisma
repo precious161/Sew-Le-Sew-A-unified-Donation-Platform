@@ -115,6 +115,10 @@ model User {
   identityVerifiedBy      String?
   identityRejectionReason String?
 
+  // Password reset fields
+  resetPasswordToken   String?
+  resetPasswordExpires DateTime?
+
   // Relations
   notification           Notification[]
   eligibilityLogs        EligibilityLog[]

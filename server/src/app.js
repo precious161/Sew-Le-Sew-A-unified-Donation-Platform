@@ -1,6 +1,8 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import session from 'express-session';
+import passport from './config/passport.js';
 import { StatusCodes } from 'http-status-codes';
 
 // Import Auth Routes
@@ -28,14 +30,31 @@ dotenv.config();
 
 const app=express();
 
+const allowedOrigins = process.env.NODE_ENV === 'production'
+  ? ['https://yourdomain.com', 'https://www.yourdomain.com']
+  : ['http://localhost:5173', 'http://localhost:3000'];
+
 app.use(cors({
-  origin: "http://localhost:5173",
+  origin: allowedOrigins,
   methods: ["GET", "POST", "PATCH","PUT","DELETE"],
-  allowedHeaders: ["Content-Type", "Authorization"]
+  allowedHeaders: ["Content-Type", "Authorization"],
+  credentials: true,
 }));
 
-
 app.use(express.json());
+
+app.use(session({
+  secret: process.env.SESSION_SECRET,
+  resave: false,
+  saveUninitialized: false,
+   cookie: {
+    secure: process.env.NODE_ENV === 'production',
+    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+  }
+}));
+
+app.use(passport.initialize());
+app.use(passport.session());
 
 // Main Route
 app.get('/',async (req,res)=>{
