@@ -2,7 +2,12 @@ import prisma from "../../../config/db.js";
 import { runBloodMatching } from "../../matching/bloodMatchingService.js";
 import { runInKindMatching } from "../../matching/inKindMatchingService.js";
 import { runOrganMatching } from "../../matching/organMatchingService.js";
+import { sendVerificationStatusEmail } from "../../emailService.js";
+import logger from "../../../utils/logger.js";
 
+/**
+ * Register a new donation intent
+ */
 export const registerIntent = async (userId, data) => {
   const currentUser = await prisma.user.findUnique({ where: { id: userId } });
   if (!currentUser || currentUser.identityStatus !== "Verified") {
@@ -11,7 +16,6 @@ export const registerIntent = async (userId, data) => {
     throw error;
   }
 
-  // NEW: Check if donor has health information (required for matching)
   const healthInfo = await prisma.healthInformation.findUnique({
     where: { userId },
   });
@@ -36,7 +40,6 @@ export const registerIntent = async (userId, data) => {
     throw error;
   }
 
-  // 1. Check Eligibility Status
   const eligibility = await prisma.userEligibilityStatus.findUnique({
     where: { userId_category: { userId, category } },
   });
@@ -47,7 +50,6 @@ export const registerIntent = async (userId, data) => {
     throw error;
   }
 
-  // 2. Check Cooldown
   if (eligibility.ineligibleUntil && eligibility.ineligibleUntil > new Date()) {
     const cooldownDate = eligibility.ineligibleUntil.toDateString();
     const error = new Error(`You are currently in a cooldown period. You will be eligible to donate again on ${cooldownDate}.`);
@@ -55,7 +57,6 @@ export const registerIntent = async (userId, data) => {
     throw error;
   }
 
-  // 3. Check for existing active/matched/pending intent
   const existingIntent = await prisma.donationIntent.findFirst({
     where: { userId, category, status: { in: ["Active", "Matched", "PendingVerification"] } },
   });
@@ -66,7 +67,6 @@ export const registerIntent = async (userId, data) => {
     throw error;
   }
 
-  // 4. Extra validation for In-Kind & Organ
   if (category === "In_Kind" || category === "Organ") {
     if (!itemType) {
       const error = new Error("Item type is required for In-Kind and Organ donations.");
@@ -75,7 +75,6 @@ export const registerIntent = async (userId, data) => {
     }
   }
 
-  // 5. Create the Intent
   const newIntent = await prisma.donationIntent.create({
     data: {
       userId,
@@ -89,7 +88,6 @@ export const registerIntent = async (userId, data) => {
     },
   });
 
-  // 6. Notify donor
   if (category === "Organ") {
     await prisma.notification.create({
       data: { userId, message: `Your Organ Donation intent has been submitted and is under medical review by the Red Cross. You will be notified once verified.` },
@@ -100,19 +98,26 @@ export const registerIntent = async (userId, data) => {
     });
   }
 
-  // 7. Automatically trigger matching engine
   if (category === "Blood") {
-    try { await runBloodMatching(); } catch (error) { console.error("Blood matching error:", error); }
+    try { await runBloodMatching(); } catch (error) { logger.error("Blood matching error:", error); }
   } else if (category === "In_Kind") {
-    try { await runInKindMatching(); } catch (error) { console.error("In-Kind matching error:", error); }
+    try { await runInKindMatching(); } catch (error) { logger.error("In-Kind matching error:", error); }
   }
+
+  logger.info(`Donation intent registered`, { userId, category });
 
   return newIntent;
 };
 
+/**
+ * Admin verification of donor intent
+ */
 export const verifyDonorIntent = async (adminId, intentId, data) => {
   const { approved, rejectionReason } = data;
-  const intent = await prisma.donationIntent.findUnique({ where: { id: intentId } });
+  const intent = await prisma.donationIntent.findUnique({
+    where: { id: intentId },
+    include: { user: true }
+  });
 
   if (!intent || intent.status !== "PendingVerification") {
     const error = new Error("Intent not found or not pending verification.");
@@ -130,8 +135,28 @@ export const verifyDonorIntent = async (adminId, intentId, data) => {
       data: { userId: intent.userId, message: `✅ Your Organ Donation intent has been medically verified! You are now in the active matching pool.` },
     });
 
-    runOrganMatching().catch(console.error);
+    // Send email notification
+    try {
+      await sendVerificationStatusEmail(intent.user.EmailAddress, intent.user.FirstName, {
+        type: 'intent',
+        status: 'approved',
+        category: intent.category,
+        itemType: intent.itemType
+      });
+    } catch (emailError) {
+      logger.error('Failed to send verification email:', emailError);
+    }
+
+    try { await runOrganMatching(); } catch (error) { logger.error("Organ matching error:", error); }
+
+    logger.info(`Donor intent approved`, { adminId, intentId });
   } else {
+    if (!rejectionReason) {
+      const error = new Error("Rejection reason is required when rejecting.");
+      error.statusCode = 400;
+      throw error;
+    }
+
     await prisma.donationIntent.update({
       where: { id: intentId },
       data: { status: "Cancelled", verifiedBy: adminId, verifiedAt: new Date(), rejectionReason },
@@ -140,9 +165,27 @@ export const verifyDonorIntent = async (adminId, intentId, data) => {
     await prisma.notification.create({
       data: { userId: intent.userId, message: `❌ Your Organ Donation intent could not be verified. Reason: ${rejectionReason}` },
     });
+
+    // Send email notification
+    try {
+      await sendVerificationStatusEmail(intent.user.EmailAddress, intent.user.FirstName, {
+        type: 'intent',
+        status: 'rejected',
+        category: intent.category,
+        reason: rejectionReason,
+        itemType: intent.itemType
+      });
+    } catch (emailError) {
+      logger.error('Failed to send rejection email:', emailError);
+    }
+
+    logger.info(`Donor intent rejected`, { adminId, intentId, reason: rejectionReason });
   }
 };
 
+/**
+ * Cancel a donation intent (user self-cancel)
+ */
 export const cancelIntent = async (userId, intentId) => {
   const intent = await prisma.donationIntent.findUnique({ where: { id: intentId } });
   if (!intent) {
@@ -164,13 +207,25 @@ export const cancelIntent = async (userId, intentId) => {
 
   const cancelled = await prisma.donationIntent.update({ where: { id: intentId }, data: { status: "Cancelled" } });
   await prisma.notification.create({ data: { userId, message: `Your ${intent.category} donation intent has been cancelled.` } });
+
+  logger.info(`Donation intent cancelled`, { userId, intentId, category: intent.category });
+
   return cancelled;
 };
 
+/**
+ * Get user's donation intents
+ */
 export const getMyIntents = async (userId) => {
-  return await prisma.donationIntent.findMany({ where: { userId }, orderBy: { createdAt: "desc" } });
+  return await prisma.donationIntent.findMany({
+    where: { userId },
+    orderBy: { createdAt: "desc" }
+  });
 };
 
+/**
+ * Get pending intents for admin verification
+ */
 export const getPendingIntents = async (page = 1, limit = 20) => {
   const skip = (page - 1) * limit;
 

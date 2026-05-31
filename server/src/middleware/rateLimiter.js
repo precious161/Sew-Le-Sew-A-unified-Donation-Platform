@@ -49,3 +49,71 @@ export const resetPasswordLimiter = rateLimit({
     res.status(options.statusCode).json(options.message);
   }
 });
+
+// ============================================
+//  Donation Management Rate Limiters
+// ============================================
+
+// Donation intent registration - 5 per hour
+export const intentLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 5,
+  message: {
+    success: false,
+    message: 'Too many donation intents registered. Please try again later.'
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (req, res, next, options) => {
+    logger.warn(`Rate limit exceeded for donation intent`, { userId: req.user?.id, ip: req.ip });
+    res.status(options.statusCode).json(options.message);
+  }
+});
+
+// Donation request submission - 3 per hour
+export const requestLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 3,
+  message: {
+    success: false,
+    message: 'Too many donation requests submitted. Please try again later.'
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (req, res, next, options) => {
+    logger.warn(`Rate limit exceeded for donation request`, { userId: req.user?.id, ip: req.ip });
+    res.status(options.statusCode).json(options.message);
+  }
+});
+
+// Eligibility check - 10 per hour
+export const eligibilityLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 10,
+  message: {
+    success: false,
+    message: 'Too many eligibility checks. Please try again later.'
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (req, res, next, options) => {
+    logger.warn(`Rate limit exceeded for eligibility check`, { userId: req.user?.id, ip: req.ip });
+    res.status(options.statusCode).json(options.message);
+  }
+});
+
+// Financial contribution submission - 3 per day
+export const contributionLimiter = rateLimit({
+  windowMs: 24 * 60 * 60 * 1000, // 24 hours
+  max: 3,
+  message: {
+    success: false,
+    message: 'Too many financial contributions submitted. Please try again tomorrow.'
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (req, res, next, options) => {
+    logger.warn(`Rate limit exceeded for financial contribution`, { userId: req.user?.id, ip: req.ip });
+    res.status(options.statusCode).json(options.message);
+  }
+});

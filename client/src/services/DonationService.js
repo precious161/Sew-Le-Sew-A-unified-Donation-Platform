@@ -21,17 +21,16 @@ const DonationService = {
         return response.data;
     },
 
-    // Get donor's active intents
-getMyIntents: async () => {
-  const response = await api.get('/donations/donor/my-intents');
-  return response.data;
-},
+    getMyIntents: async () => {
+        const response = await api.get('/donations/donor/my-intents');
+        return response.data;
+    },
 
-// Cancel an intent
-cancelIntent: async (intentId) => {
-  const response = await api.patch(`/donations/donor/${intentId}/cancel`);
-  return response.data;
-},
+    cancelIntent: async (intentId) => {
+        const response = await api.patch(`/donations/donor/${intentId}/cancel`);
+        return response.data;
+    },
+
     // --- RECIPIENT ---
     getHealthInfo: async () => {
         const response = await api.get('/donations/recipient/health-info');
@@ -42,12 +41,6 @@ cancelIntent: async (intentId) => {
         return response.data;
     },
     createDonationRequest: async (formData) => {
-        // Log the FormData contents for debugging
-        console.log('DonationService.createDonationRequest called');
-        for (let pair of formData.entries()) {
-            console.log(pair[0], ':', pair[1]);
-        }
-
         const response = await api.post('/donations/recipient/request', formData, {
             headers: { 'Content-Type': 'multipart/form-data' }
         });
