@@ -33,6 +33,11 @@ const FinancialService = {
     return response.data;
   },
 
+  getVerifiedContributions: async (page = 1, limit = 20) => {
+  const response = await api.get(`/matching/financial/verified?page=${page}&limit=${limit}`);
+  return response.data;
+},
+
   // Admin: Review contribution (approve/reject)
   reviewContribution: async (id, approved, rejectionReason) => {
     const response = await api.patch(`/matching/financial/${id}/review`, { approved, rejectionReason });

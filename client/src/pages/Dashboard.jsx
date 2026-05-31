@@ -14,7 +14,9 @@ import ChatBot from '../components/ai/ChatBot';
 import {
   Sun, Moon, ShieldCheck, Activity, Plus, Heart, Lock,
   CheckCircle, Clock, Search, HeartPulse, ArrowRight,
-  MapPin, Users, Calendar, RefreshCw, Menu
+  MapPin, Users, Calendar, RefreshCw, Menu, ChevronDown,
+  ChevronUp, Filter, FileText, UserCheck, ClipboardList, XCircle,
+  Droplets, Box, History, ClipboardCheck
 } from 'lucide-react';
 
 const Dashboard = () => {
@@ -25,6 +27,24 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+
+  // Collapsible sections for Recipient
+  const [recipientSections, setRecipientSections] = useState({
+    medicalProfile: true,
+    supportRequest: true,
+    liveTracking: true
+  });
+
+  // Collapsible sections for Donor
+  const [donorSections, setDonorSections] = useState({
+    eligibilityQuiz: true,
+    donationIntent: true
+  });
+
+  // Filter states
+  const [requestFilter, setRequestFilter] = useState('all');
+  const [intentFilter, setIntentFilter] = useState('all');
+
   const [status, setStatus] = useState({
     identity: 'Unverified',
     hasHealthData: false,
@@ -32,22 +52,85 @@ const Dashboard = () => {
     hasActivePledge: false
   });
   const [activeRequests, setActiveRequests] = useState([]);
+  const [filteredRequests, setFilteredRequests] = useState([]);
+  const [activeIntents, setActiveIntents] = useState([]);
+  const [filteredIntents, setFilteredIntents] = useState([]);
+  const [donationHistory, setDonationHistory] = useState([]);
   const [events, setEvents] = useState([]);
   const [activeMatch, setActiveMatch] = useState(null);
+
+  const toggleRecipientSection = (section) => {
+    setRecipientSections(prev => ({ ...prev, [section]: !prev[section] }));
+  };
+
+  const toggleDonorSection = (section) => {
+    setDonorSections(prev => ({ ...prev, [section]: !prev[section] }));
+  };
+
+  // Helper functions
+  const getProgressStep = (reqStatus) => {
+    const map = {
+      'PendingVerification': 1,
+      'Pending': 2,
+      'Matching': 3,
+      'Fulfilled': 4
+    };
+    return map[reqStatus] || 1;
+  };
+
+  const getRequestStatusBadge = (status) => {
+    const config = {
+      PendingVerification: { color: 'bg-yellow-500/20 text-yellow-600 border-yellow-500/30', icon: <Clock size={10} />, label: 'Under Review' },
+      Pending: { color: 'bg-blue-500/20 text-blue-600 border-blue-500/30', icon: <Clock size={10} />, label: 'Pending Match' },
+      Matching: { color: 'bg-purple-500/20 text-purple-600 border-purple-500/30', icon: <HeartPulse size={10} />, label: 'Matching' },
+      Fulfilled: { color: 'bg-green-500/20 text-green-600 border-green-500/30', icon: <CheckCircle size={10} />, label: 'Fulfilled' },
+      Cancelled: { color: 'bg-red-500/20 text-red-600 border-red-500/30', icon: <XCircle size={10} />, label: 'Cancelled' },
+    };
+    return config[status] || config.PendingVerification;
+  };
+
+  const getIntentStatusBadge = (status) => {
+    const config = {
+      Active: { color: 'bg-green-500/20 text-green-600 border-green-500/30', icon: <CheckCircle size={10} />, label: 'Active' },
+      PendingVerification: { color: 'bg-yellow-500/20 text-yellow-600 border-yellow-500/30', icon: <Clock size={10} />, label: 'Under Review' },
+      Matched: { color: 'bg-purple-500/20 text-purple-600 border-purple-500/30', icon: <HeartPulse size={10} />, label: 'Matched' },
+      Completed: { color: 'bg-blue-500/20 text-blue-600 border-blue-500/30', icon: <CheckCircle size={10} />, label: 'Completed' },
+      Cancelled: { color: 'bg-red-500/20 text-red-600 border-red-500/30', icon: <XCircle size={10} />, label: 'Cancelled' },
+    };
+    return config[status] || config.Active;
+  };
+
+  // Apply filters
+  useEffect(() => {
+    if (requestFilter === 'all') {
+      setFilteredRequests(activeRequests);
+    } else {
+      setFilteredRequests(activeRequests.filter(req => req.status === requestFilter));
+    }
+  }, [requestFilter, activeRequests]);
+
+  useEffect(() => {
+    if (intentFilter === 'all') {
+      setFilteredIntents(activeIntents);
+    } else {
+      setFilteredIntents(activeIntents.filter(intent => intent.status === intentFilter));
+    }
+  }, [intentFilter, activeIntents]);
 
   const syncRegistryData = useCallback(async () => {
     try {
       const isRecipient = user?.Role === 'Recipient';
       const isDonor = user?.Role === 'Donor';
 
-      const [pRes, hRes, reqRes, quizRes, eventsRes, matchRes, intentRes] = await Promise.all([
+      const [pRes, hRes, reqRes, quizRes, eventsRes, matchRes, intentRes, historyRes] = await Promise.all([
         ProfileService.getMe(),
         DonationService.getHealthInfo().catch(() => ({ success: false })),
         isRecipient ? DonationService.getMyRequests().catch(() => ({ success: false, data: [] })) : Promise.resolve({ data: [] }),
         isDonor ? DonationService.getEligibilityHistory().catch(() => ({ success: false, data: [] })) : Promise.resolve({ data: [] }),
         isDonor ? EventService.getPublicEvents().catch(() => ({ success: false, data: [] })) : Promise.resolve({ data: [] }),
         MatchingService.getMyActiveMatch().catch(() => ({ success: false, hasActiveMatch: false })),
-        isDonor ? api.get('/donations/donor/my-intents').catch(() => ({ data: [] })) : Promise.resolve({ data: [] })
+        isDonor ? DonationService.getMyIntents().catch(() => ({ success: false, data: [] })) : Promise.resolve({ data: [] }),
+        isDonor ? DonationService.getDonationHistory().catch(() => ({ success: false, data: [] })) : Promise.resolve({ data: [] })
       ]);
 
       const identityStatus = pRes.data?.identityStatus || 'Unverified';
@@ -62,7 +145,20 @@ const Dashboard = () => {
         hasActivePledge: hasActive
       });
 
-      if (reqRes.success) setActiveRequests(reqRes.data || []);
+      if (reqRes.success && reqRes.data) {
+        setActiveRequests(reqRes.data);
+        setFilteredRequests(reqRes.data);
+      }
+
+      if (intentRes.success && intentRes.data) {
+        setActiveIntents(intentRes.data);
+        setFilteredIntents(intentRes.data);
+      }
+
+      if (historyRes.success && historyRes.data) {
+        setDonationHistory(historyRes.data);
+      }
+
       if (eventsRes.success) setEvents(eventsRes.data || []);
 
       if (matchRes.success && matchRes.hasActiveMatch) {
@@ -86,7 +182,6 @@ const Dashboard = () => {
     }
   }, [user, navigate, syncRegistryData]);
 
-  // Close sidebar when switching to desktop
   useEffect(() => {
     const handleResize = () => {
       if (window.innerWidth >= 768) {
@@ -124,6 +219,16 @@ const Dashboard = () => {
     }
   };
 
+  const getIntentFilterCount = (filterStatus) => {
+    if (filterStatus === 'all') return activeIntents.length;
+    return activeIntents.filter(intent => intent.status === filterStatus).length;
+  };
+
+  const getRequestFilterCount = (filterStatus) => {
+    if (filterStatus === 'all') return activeRequests.length;
+    return activeRequests.filter(req => req.status === filterStatus).length;
+  };
+
   if (!user || user.Role === 'Red_Cross_Admin') return null;
 
   if (loading) return (
@@ -138,11 +243,6 @@ const Dashboard = () => {
   const isDonor = user.Role === 'Donor';
   const canProceed = isVerified && (isRecipient ? status.hasHealthData : status.passedQuiz);
 
-  const getProgressStep = (reqStatus) => {
-    const map = { 'PendingVerification': 1, 'Pending': 2, 'Matching': 3, 'Fulfilled': 4 };
-    return map[reqStatus] || 1;
-  };
-
   return (
     <div className={`flex min-h-screen transition-colors duration-500 ${isDarkMode ? 'bg-[#0b1121]' : 'bg-gray-50'}`}>
       {/* Desktop Sidebar */}
@@ -155,19 +255,12 @@ const Dashboard = () => {
       <main className="flex-1 md:ml-72 w-full">
         {/* Mobile Header Bar */}
         <div className="md:hidden flex items-center justify-between p-4 bg-white dark:bg-[#0b1121] border-b border-gray-100 dark:border-white/5 sticky top-0 z-50">
-          <button
-            onClick={() => setIsMobileSidebarOpen(true)}
-            className="bg-medical-red p-2.5 rounded-xl shadow-lg"
-            aria-label="Open menu"
-          >
+          <button onClick={() => setIsMobileSidebarOpen(true)} className="bg-medical-red p-2.5 rounded-xl shadow-lg">
             <Menu size={20} className="text-white" />
           </button>
           <div className="flex items-center gap-3">
             <NotificationHub isDarkMode={isDarkMode} />
-            <button
-              onClick={toggleTheme}
-              className={`p-2.5 rounded-xl shadow-lg transition-all ${isDarkMode ? 'bg-yellow-400 text-black' : 'bg-[#111C44] text-white'}`}
-            >
+            <button onClick={toggleTheme} className={`p-2.5 rounded-xl shadow-lg transition-all ${isDarkMode ? 'bg-yellow-400 text-black' : 'bg-[#111C44] text-white'}`}>
               {isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
             </button>
           </div>
@@ -203,12 +296,13 @@ const Dashboard = () => {
                   <StatusBadge active={isVerified} variant={isPending ? 'warning' : 'danger'} label={isVerified ? "ID Verified" : isPending ? "ID Under Review" : "Identity Missing"} />
                   {isRecipient && <StatusBadge active={status.hasHealthData} label={status.hasHealthData ? "Medical Profile Synced" : "Medical Missing"} />}
                   {isDonor && <StatusBadge active={status.passedQuiz} label={status.passedQuiz ? "Quiz Passed" : "Quiz Pending"} />}
+                  {isDonor && status.hasActivePledge && <StatusBadge active={true} label="Active Pledge" variant="success" />}
                 </div>
               </div>
               <ShieldCheck size={180} className="md:size-[280px] absolute -right-10 md:-right-20 -bottom-10 md:-bottom-20 transition-opacity duration-700 opacity-5" />
             </div>
 
-            {/* MATCH ALERT CARD */}
+            {/* MATCH ALERT CARD - Only for Donors with active match */}
             {isDonor && activeMatch && activeMatch.status === 'Pending' && (
               <MatchAlertCard
                 match={activeMatch}
@@ -218,92 +312,463 @@ const Dashboard = () => {
               />
             )}
 
-            {/* RECIPIENT: Live Request Tracking */}
-            {isRecipient && activeRequests.length > 0 && (
-              <div className="mb-12 space-y-6 mt-12 text-left">
-                <h3 className="text-lg md:text-xl font-black tracking-tighter uppercase italic text-[#111C44] dark:text-white mb-4">Live Request Tracking</h3>
-                {activeRequests.map((req, idx) => {
-                  const step = getProgressStep(req.status);
-                  return (
-                    <div key={idx} className={`p-6 md:p-8 rounded-[30px] md:rounded-[40px] shadow-xl border ${isDarkMode ? 'bg-white/5 border-white/5 text-white' : 'bg-white border-gray-100 text-[#111C44]'}`}>
-                      <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-3 mb-6 md:mb-8 text-left">
-                        <div>
-                          <h4 className="font-black text-base md:text-lg uppercase italic text-left">Case #{req.id.substring(0,8)}</h4>
-                          <p className="text-[9px] md:text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1 text-left">{req.donationType} Request • {req.hospitalName || 'General Registry'}</p>
-                        </div>
-                        <div className={`px-3 md:px-4 py-1.5 md:py-2 rounded-xl text-[9px] md:text-[10px] font-black uppercase tracking-widest w-fit ${req.urgencyLevel === 'Critical' ? 'bg-medical-red/10 text-medical-red' : 'bg-blue-500/10 text-blue-500'}`}>
-                          {req.urgencyLevel} Urgency
-                        </div>
-                      </div>
-                      <div className="relative flex justify-between items-center mt-8 md:mt-12 mb-4 px-2 md:px-4">
-                        <div className="absolute top-1/2 left-0 w-full h-1 bg-gray-100 dark:bg-white/10 -z-10 -translate-y-1/2 rounded-full"></div>
-                        <div className="absolute top-1/2 left-0 h-1 bg-blue-500 -z-10 -translate-y-1/2 rounded-full transition-all duration-1000" style={{ width: `${(step - 1) * 33.33}%` }}></div>
-                        <ProgressNode active={step >= 1} icon={<Clock size={12}/>} label="Submitted" />
-                        <ProgressNode active={step >= 2} icon={<ShieldCheck size={12}/>} label="Verified" />
-                        <ProgressNode active={step >= 3} icon={<Search size={12}/>} label="Matching" />
-                        <ProgressNode active={step >= 4} icon={<HeartPulse size={12}/>} label="Found" />
-                      </div>
+            {/* ==================== RECIPIENT SECTIONS (FULL) ==================== */}
+            {isRecipient && (
+              <>
+                {/* Medical Profile Section */}
+                <div className="mt-8 md:mt-12">
+                  <button
+                    onClick={() => toggleRecipientSection('medicalProfile')}
+                    className={`w-full flex items-center justify-between p-4 md:p-5 rounded-2xl transition-all ${
+                      recipientSections.medicalProfile
+                        ? 'bg-medical-red/10 border border-medical-red/30'
+                        : 'bg-white/5 border border-white/10'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <FileText size={20} className="text-medical-red" />
+                      <h3 className="text-base md:text-lg font-black">Medical Profile</h3>
+                      {!status.hasHealthData && (
+                        <span className="px-2 py-0.5 bg-red-500/20 text-red-400 rounded-full text-[8px] font-black animate-pulse">Required</span>
+                      )}
                     </div>
-                  );
-                })}
-              </div>
-            )}
+                    {recipientSections.medicalProfile ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                  </button>
 
-            {/* ACTION BUTTONS */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8 mt-8 md:mt-12">
-              <button onClick={() => navigate(isRecipient ? '/donations/recipient/health-info' : '/donations/donor/check')} className={`p-6 md:p-10 rounded-[35px] md:rounded-[55px] text-left border transition-all ${isDarkMode ? 'bg-white/5 border-white/5 text-white hover:bg-white/10' : 'bg-white border-gray-100 shadow-xl hover:-translate-y-1'}`}>
-                <div className="p-3 md:p-4 bg-blue-500/10 rounded-2xl w-fit mb-4 md:mb-6 text-blue-500"><Activity size={24} className="md:size-[28px]"/></div>
-                <h3 className="text-xl md:text-2xl font-black tracking-tighter uppercase italic mb-2">1. {isRecipient ? 'Medical Profile' : 'Eligibility Quiz'}</h3>
-                <p className="text-[11px] md:text-xs text-gray-400 font-medium italic">{isRecipient ? (status.hasHealthData ? "Clinical data synced." : "Synchronize vitals for biological matching.") : (status.passedQuiz ? "Screening verified." : "Analyze health metrics against standards.")}</p>
-              </button>
-
-              <button onClick={() => canProceed && !status.hasActivePledge && navigate(isRecipient ? '/donations/recipient/request' : '/donations/donor/register-intent')} className={`p-6 md:p-10 rounded-[35px] md:rounded-[55px] text-left border transition-all relative overflow-hidden group ${!canProceed ? 'opacity-40 grayscale cursor-not-allowed border-dashed' : status.hasActivePledge && isDonor ? 'border-blue-500/50 bg-blue-500/5' : 'hover:-translate-y-1 shadow-2xl active:scale-95'} ${isDarkMode ? 'bg-white/5 border-white/5 text-white' : 'bg-white border-gray-100'}`}>
-                <div className={`p-3 md:p-4 rounded-2xl w-fit mb-4 md:mb-6 ${canProceed ? (status.hasActivePledge && isDonor ? 'bg-green-500 text-white shadow-lg shadow-green-500/20' : 'bg-blue-600 text-white shadow-lg shadow-blue-900/40') : 'bg-gray-100 text-gray-400'}`}>
-                  {canProceed ? (isRecipient ? <Plus size={24} className="md:size-[28px]"/> : <Heart size={24} className="md:size-[28px]"/>) : <Lock size={24} className="md:size-[28px]"/>}
-                </div>
-                <h3 className="text-xl md:text-2xl font-black tracking-tighter uppercase italic mb-2 text-left">
-                  2. {isRecipient ? 'Support Request' : (status.hasActivePledge ? 'Active Donor Pool' : 'Register Intent')}
-                </h3>
-                <p className="text-[11px] md:text-xs text-gray-400 font-medium italic text-left">{canProceed ? (status.hasActivePledge && isDonor ? "Pledge is active. Matching engine is scanning." : "Authorized access. Submit your entry to the registry.") : "Finish Step 1 and verify Identity to unlock."}</p>
-                {canProceed && !status.hasActivePledge && <ArrowRight className="absolute bottom-6 md:bottom-10 right-6 md:right-10 text-blue-500 opacity-0 group-hover:opacity-100 group-hover:translate-x-2 transition-all" size={24} />}
-              </button>
-            </div>
-
-            {/* EVENTS SECTION - ONLY FOR DONORS */}
-            {isDonor && events.length > 0 && (
-              <div className="mt-12 md:mt-16 animate-in fade-in slide-in-from-bottom-10 duration-1000 text-left">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="bg-blue-600 p-2 rounded-xl text-white"><Calendar size={18} className="md:size-[20px]" /></div>
-                  <h3 className="text-xl md:text-2xl font-black tracking-tighter uppercase italic text-[#111C44] dark:text-white">Active Donation Drives</h3>
-                </div>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
-                  {events.map((event) => {
-                    const isAttending = event.attendees?.some(a => a.id === user.id);
-                    const dateObj = new Date(event.eventDate);
-                    return (
-                      <div key={event.id} className={`p-5 md:p-6 rounded-[25px] md:rounded-[35px] border shadow-xl flex flex-col justify-between transition-all ${isAttending ? 'bg-blue-500/5 border-blue-500/30 dark:bg-blue-500/10' : 'bg-white dark:bg-white/5 border-gray-100 dark:border-white/5 hover:border-blue-500'}`}>
+                  {recipientSections.medicalProfile && (
+                    <div className="mt-4 p-5 md:p-8 rounded-2xl bg-white dark:bg-white/5 border border-gray-100 dark:border-white/10 shadow-xl">
+                      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                         <div>
-                          <div className="flex justify-between items-start mb-4 text-left">
-                            <h4 className="font-black text-base md:text-lg text-[#1B2559] dark:text-white uppercase italic pr-4">{event.eventName}</h4>
-                            <div className={`w-12 h-12 md:w-14 md:h-14 shrink-0 rounded-2xl flex flex-col items-center justify-center font-black shadow-md ${isAttending ? 'bg-blue-600 text-white' : 'bg-[#111C44] text-white'}`}>
-                              <span className="text-[7px] md:text-[9px] uppercase text-white/60 -mb-1">{dateObj.toLocaleString('en-US', { month: 'short' })}</span>
-                              <span className="text-base md:text-xl">{dateObj.getDate()}</span>
-                            </div>
-                          </div>
-                          <div className="space-y-2 mb-4 md:mb-6 text-left">
-                            <p className="text-[9px] md:text-[10px] font-bold uppercase text-gray-400 flex items-center gap-2 tracking-widest"><MapPin size={10} className="md:size-[12px] text-blue-500" /> {event.location}</p>
-                            <p className="text-[9px] md:text-[10px] font-bold uppercase text-gray-400 flex items-center gap-2 tracking-widest"><Clock size={10} className="md:size-[12px] text-blue-500" /> {event.startTime} - {event.endTime}</p>
-                            <p className="text-[9px] md:text-[10px] font-bold uppercase text-gray-400 flex items-center gap-2 tracking-widest"><Users size={10} className="md:size-[12px] text-green-500" /> {event._count?.attendees || 0} Responded</p>
-                          </div>
+                          <h4 className="font-black text-lg">Clinical Information</h4>
+                          <p className="text-sm text-gray-500 mt-1">Your medical data is required for donor matching</p>
                         </div>
-                        <button onClick={() => handleRSVP(event.id)} className={`w-full py-3 md:py-4 rounded-2xl font-black text-[9px] md:text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${isAttending ? 'bg-white dark:bg-[#111C44] text-blue-600 border border-blue-500/20 shadow-sm hover:bg-blue-600 hover:text-white' : 'bg-blue-600 text-white shadow-xl shadow-blue-900/20 hover:bg-blue-700'}`}>
-                          {isAttending ? <><CheckCircle size={12} className="md:size-[14px]" /> Cancel RSVP</> : <><Plus size={12} className="md:size-[14px]" /> RSVP Now</>}
+                        <button
+                          onClick={() => navigate('/donations/recipient/health-info')}
+                          className="px-5 md:px-6 py-2.5 md:py-3 bg-medical-red text-white rounded-xl font-black text-[9px] md:text-[10px] uppercase tracking-wider hover:bg-red-700 transition-all"
+                        >
+                          {status.hasHealthData ? 'Update Profile' : 'Complete Profile'}
                         </button>
                       </div>
-                    );
-                  })}
+                    </div>
+                  )}
                 </div>
-              </div>
+
+                {/* Support Request Section */}
+                <div className="mt-6">
+                  <button
+                    onClick={() => toggleRecipientSection('supportRequest')}
+                    className={`w-full flex items-center justify-between p-4 md:p-5 rounded-2xl transition-all ${
+                      recipientSections.supportRequest
+                        ? 'bg-medical-red/10 border border-medical-red/30'
+                        : 'bg-white/5 border border-white/10'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <ClipboardList size={20} className="text-medical-red" />
+                      <h3 className="text-base md:text-lg font-black">Support Request</h3>
+                    </div>
+                    {recipientSections.supportRequest ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                  </button>
+
+                  {recipientSections.supportRequest && (
+                    <div className="mt-4 p-5 md:p-8 rounded-2xl bg-white dark:bg-white/5 border border-gray-100 dark:border-white/10 shadow-xl">
+                      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                        <div>
+                          <h4 className="font-black text-lg">Request Medical Support</h4>
+                          <p className="text-sm text-gray-500 mt-1">Submit a new donation request for blood, organ, supplies, or financial aid</p>
+                        </div>
+                        <button
+                          onClick={() => navigate('/donations/recipient/request')}
+                          className="px-5 md:px-6 py-2.5 md:py-3 bg-blue-600 text-white rounded-xl font-black text-[9px] md:text-[10px] uppercase tracking-wider hover:bg-blue-700 transition-all flex items-center gap-2"
+                        >
+                          <Plus size={14} /> New Request
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Live Request Tracking Section */}
+                <div className="mt-6">
+                  <button
+                    onClick={() => toggleRecipientSection('liveTracking')}
+                    className={`w-full flex items-center justify-between p-4 md:p-5 rounded-2xl transition-all ${
+                      recipientSections.liveTracking
+                        ? 'bg-medical-red/10 border border-medical-red/30'
+                        : 'bg-white/5 border border-white/10'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Activity size={20} className="text-medical-red" />
+                      <h3 className="text-base md:text-lg font-black">Live Request Tracking</h3>
+                      {activeRequests.length > 0 && (
+                        <span className="px-2 py-0.5 bg-medical-red text-white rounded-full text-[8px] font-black">
+                          {activeRequests.length}
+                        </span>
+                      )}
+                    </div>
+                    {recipientSections.liveTracking ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                  </button>
+
+                  {recipientSections.liveTracking && (
+                    <div className="mt-4 p-5 md:p-8 rounded-2xl bg-white dark:bg-white/5 border border-gray-100 dark:border-white/10 shadow-xl">
+                      {/* Filter Bar */}
+                      <div className="mb-6 flex flex-wrap items-center gap-2">
+                        <Filter size={14} className="text-gray-400" />
+                        <span className="text-[9px] font-black text-gray-400 uppercase tracking-wider">Filter:</span>
+
+                        <button
+                          onClick={() => setRequestFilter('all')}
+                          className={`px-3 py-1.5 rounded-full text-[9px] font-black uppercase transition-all ${
+                            requestFilter === 'all'
+                              ? 'bg-medical-red text-white shadow-md'
+                              : 'bg-gray-100 dark:bg-white/10 text-gray-600'
+                          }`}
+                        >
+                          All ({getRequestFilterCount('all')})
+                        </button>
+                        <button
+                          onClick={() => setRequestFilter('PendingVerification')}
+                          className={`px-3 py-1.5 rounded-full text-[9px] font-black uppercase transition-all ${
+                            requestFilter === 'PendingVerification'
+                              ? 'bg-yellow-500 text-white shadow-md'
+                              : 'bg-yellow-500/10 text-yellow-600'
+                          }`}
+                        >
+                          Under Review ({getRequestFilterCount('PendingVerification')})
+                        </button>
+                        <button
+                          onClick={() => setRequestFilter('Pending')}
+                          className={`px-3 py-1.5 rounded-full text-[9px] font-black uppercase transition-all ${
+                            requestFilter === 'Pending'
+                              ? 'bg-blue-500 text-white shadow-md'
+                              : 'bg-blue-500/10 text-blue-600'
+                          }`}
+                        >
+                          Pending Match ({getRequestFilterCount('Pending')})
+                        </button>
+                        <button
+                          onClick={() => setRequestFilter('Matching')}
+                          className={`px-3 py-1.5 rounded-full text-[9px] font-black uppercase transition-all ${
+                            requestFilter === 'Matching'
+                              ? 'bg-purple-500 text-white shadow-md'
+                              : 'bg-purple-500/10 text-purple-600'
+                          }`}
+                        >
+                          Matching ({getRequestFilterCount('Matching')})
+                        </button>
+                        <button
+                          onClick={() => setRequestFilter('Fulfilled')}
+                          className={`px-3 py-1.5 rounded-full text-[9px] font-black uppercase transition-all ${
+                            requestFilter === 'Fulfilled'
+                              ? 'bg-green-500 text-white shadow-md'
+                              : 'bg-green-500/10 text-green-600'
+                          }`}
+                        >
+                          Completed ({getRequestFilterCount('Fulfilled')})
+                        </button>
+
+                        {requestFilter !== 'all' && (
+                          <button onClick={() => setRequestFilter('all')} className="text-[8px] text-gray-400 hover:text-medical-red">
+                            ✕ Clear
+                          </button>
+                        )}
+                      </div>
+
+                      {filteredRequests.length === 0 ? (
+                        <div className="text-center py-8">
+                          <Activity size={48} className="mx-auto text-gray-400 mb-4 opacity-50" />
+                          <p className="text-gray-500 font-black text-sm">
+                            {activeRequests.length === 0 ? 'No donation requests yet' : `No ${requestFilter} requests found`}
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          {filteredRequests.map((req) => {
+                            const step = getProgressStep(req.status);
+                            const badge = getRequestStatusBadge(req.status);
+                            return (
+                              <div key={req.id} className="p-5 rounded-xl border bg-white dark:bg-white/5">
+                                <div className="flex justify-between items-start flex-wrap gap-3 mb-3">
+                                  <div>
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <h4 className="font-black text-sm">Case #{req.id.substring(0,8)}</h4>
+                                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[7px] font-black ${badge.color}`}>
+                                        {badge.icon} {badge.label}
+                                      </span>
+                                    </div>
+                                    <p className="text-[8px] text-gray-500 mt-1">{req.donationType} • {req.hospitalName || 'General Registry'}</p>
+                                  </div>
+                                  <div className={`px-2 py-1 rounded-lg text-[7px] font-black uppercase ${req.urgencyLevel === 'Critical' ? 'bg-medical-red/20 text-medical-red' : 'bg-blue-500/20 text-blue-500'}`}>
+                                    {req.urgencyLevel}
+                                  </div>
+                                </div>
+                                <div className="flex justify-between items-center mt-4">
+                                  <ProgressStep active={step >= 1} label="Submitted" />
+                                  <ProgressStep active={step >= 2} label="Verified" />
+                                  <ProgressStep active={step >= 3} label="Matching" />
+                                  <ProgressStep active={step >= 4} label="Found" />
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+
+            {/* ==================== DONOR SECTIONS (Simplified) ==================== */}
+            {isDonor && (
+              <>
+                {/* 1. Eligibility Quiz Section - Collapsible */}
+                <div className="mt-8 md:mt-12">
+                  <button
+                    onClick={() => toggleDonorSection('eligibilityQuiz')}
+                    className={`w-full flex items-center justify-between p-4 md:p-5 rounded-2xl transition-all ${
+                      donorSections.eligibilityQuiz
+                        ? 'bg-medical-red/10 border border-medical-red/30'
+                        : 'bg-white/5 border border-white/10'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <ClipboardCheck size={20} className="text-medical-red" />
+                      <h3 className="text-base md:text-lg font-black">Eligibility Quiz</h3>
+                      {!status.passedQuiz && (
+                        <span className="px-2 py-0.5 bg-red-500/20 text-red-400 rounded-full text-[8px] font-black animate-pulse">Required</span>
+                      )}
+                      {status.passedQuiz && (
+                        <span className="px-2 py-0.5 bg-green-500/20 text-green-400 rounded-full text-[8px] font-black">✓ Completed</span>
+                      )}
+                    </div>
+                    {donorSections.eligibilityQuiz ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                  </button>
+
+                  {donorSections.eligibilityQuiz && (
+                    <div className="mt-4 p-5 md:p-8 rounded-2xl bg-white dark:bg-white/5 border border-gray-100 dark:border-white/10 shadow-xl">
+                      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                        <div>
+                          <h4 className="font-black text-lg">Medical Screening</h4>
+                          <p className="text-sm text-gray-500 mt-1">Complete health assessment to become an eligible donor</p>
+                        </div>
+                        <button
+                          onClick={() => navigate('/donations/donor/check')}
+                          className="px-5 md:px-6 py-2.5 md:py-3 bg-medical-red text-white rounded-xl font-black text-[9px] md:text-[10px] uppercase tracking-wider hover:bg-red-700 transition-all"
+                        >
+                          {status.passedQuiz ? 'Retake Quiz' : 'Start Quiz'}
+                        </button>
+                      </div>
+
+                      {status.passedQuiz && (
+                        <div className="mt-6 p-4 rounded-xl bg-green-500/10 border border-green-500/20">
+                          <div className="flex items-center gap-3">
+                            <CheckCircle size={20} className="text-green-500" />
+                            <div>
+                              <p className="font-black text-green-600">You are eligible to donate!</p>
+                              <p className="text-[10px] text-gray-500">Your medical screening has been verified.</p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* 2. Donation Intent Section - Collapsible */}
+                <div className="mt-6">
+                  <button
+                    onClick={() => toggleDonorSection('donationIntent')}
+                    className={`w-full flex items-center justify-between p-4 md:p-5 rounded-2xl transition-all ${
+                      donorSections.donationIntent
+                        ? 'bg-medical-red/10 border border-medical-red/30'
+                        : 'bg-white/5 border border-white/10'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <HeartPulse size={20} className="text-medical-red" />
+                      <h3 className="text-base md:text-lg font-black">Donation Intent</h3>
+                      {activeIntents.length > 0 && (
+                        <span className="px-2 py-0.5 bg-medical-red text-white rounded-full text-[8px] font-black">
+                          {activeIntents.length} active
+                        </span>
+                      )}
+                    </div>
+                    {donorSections.donationIntent ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                  </button>
+
+                  {donorSections.donationIntent && (
+                    <div className="mt-4 p-5 md:p-8 rounded-2xl bg-white dark:bg-white/5 border border-gray-100 dark:border-white/10 shadow-xl">
+                      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+                        <div>
+                          <h4 className="font-black text-lg">Register Your Intent</h4>
+                          <p className="text-sm text-gray-500 mt-1">Submit your donation pledge to enter the matching pool</p>
+                        </div>
+                        <button
+                          onClick={() => navigate('/donations/donor/register-intent')}
+                          className="px-5 md:px-6 py-2.5 md:py-3 bg-blue-600 text-white rounded-xl font-black text-[9px] md:text-[10px] uppercase tracking-wider hover:bg-blue-700 transition-all flex items-center gap-2"
+                          disabled={!canProceed}
+                        >
+                          <Plus size={14} /> New Intent
+                        </button>
+                      </div>
+
+                      {/* Intent Filter Bar */}
+                      {activeIntents.length > 0 && (
+                        <div className="mb-6">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Filter size={14} className="text-gray-400" />
+                            <span className="text-[9px] font-black text-gray-400 uppercase tracking-wider">Filter:</span>
+
+                            <button
+                              onClick={() => setIntentFilter('all')}
+                              className={`px-3 py-1.5 rounded-full text-[9px] font-black uppercase transition-all ${
+                                intentFilter === 'all'
+                                  ? 'bg-medical-red text-white shadow-md'
+                                  : 'bg-gray-100 dark:bg-white/10 text-gray-600'
+                              }`}
+                            >
+                              All ({getIntentFilterCount('all')})
+                            </button>
+                            <button
+                              onClick={() => setIntentFilter('Active')}
+                              className={`px-3 py-1.5 rounded-full text-[9px] font-black uppercase transition-all ${
+                                intentFilter === 'Active'
+                                  ? 'bg-green-500 text-white shadow-md'
+                                  : 'bg-green-500/10 text-green-600'
+                              }`}
+                            >
+                              Active ({getIntentFilterCount('Active')})
+                            </button>
+                            <button
+                              onClick={() => setIntentFilter('PendingVerification')}
+                              className={`px-3 py-1.5 rounded-full text-[9px] font-black uppercase transition-all ${
+                                intentFilter === 'PendingVerification'
+                                  ? 'bg-yellow-500 text-white shadow-md'
+                                  : 'bg-yellow-500/10 text-yellow-600'
+                              }`}
+                            >
+                              Review ({getIntentFilterCount('PendingVerification')})
+                            </button>
+                            {intentFilter !== 'all' && (
+                              <button onClick={() => setIntentFilter('all')} className="text-[8px] text-gray-400 hover:text-medical-red">
+                                ✕ Clear
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {filteredIntents.length === 0 ? (
+                        <div className="text-center py-8">
+                          <HeartPulse size={48} className="mx-auto text-gray-400 mb-4 opacity-50" />
+                          <p className="text-gray-500 font-black text-sm">
+                            {activeIntents.length === 0 ? 'No donation intents yet' : `No ${intentFilter} intents found`}
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          {filteredIntents.map((intent) => {
+                            const badge = getIntentStatusBadge(intent.status);
+                            return (
+                              <div key={intent.id} className={`p-4 rounded-xl border ${isDarkMode ? 'bg-white/5 border-white/10' : 'bg-white border-gray-100'}`}>
+                                <div className="flex justify-between items-start flex-wrap gap-3">
+                                  <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-xl bg-medical-red/10 flex items-center justify-center">
+                                      {intent.category === 'Blood' ? <Droplets size={20} className="text-medical-red" /> :
+                                       intent.category === 'Organ' ? <Heart size={20} className="text-pink-500" /> :
+                                       <Box size={20} className="text-orange-500" />}
+                                    </div>
+                                    <div>
+                                      <div className="flex items-center gap-2 flex-wrap">
+                                        <h4 className="font-black text-base">{intent.category} Donation</h4>
+                                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[7px] font-black uppercase ${badge.color}`}>
+                                          {badge.icon} {badge.label}
+                                        </span>
+                                      </div>
+                                      <p className="text-[9px] text-gray-500 mt-1">
+                                        {new Date(intent.plannedDate).toLocaleDateString()} • {intent.location}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  {(intent.status === 'Active' || intent.status === 'PendingVerification') && (
+                                    <button
+                                      onClick={async () => {
+                                        if (window.confirm('Cancel this donation intent?')) {
+                                          try {
+                                            await DonationService.cancelIntent(intent.id);
+                                            syncRegistryData();
+                                          } catch (error) {
+                                            alert('Failed to cancel intent');
+                                          }
+                                        }
+                                      }}
+                                      className="px-3 py-1.5 bg-red-500/10 text-red-500 rounded-lg text-[7px] font-black uppercase hover:bg-red-500 hover:text-white transition-all"
+                                    >
+                                      Cancel
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Upcoming Events Section */}
+                {events.length > 0 && (
+                  <div className="mt-8 md:mt-12">
+                    <h3 className="text-lg font-black mb-4 text-blue-600 dark:text-blue-400 flex items-center gap-2">
+                      <Calendar size={18} /> Upcoming Donation Drives
+                    </h3>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                      {events.map((event) => {
+                        const isAttending = event.attendees?.some(a => a.id === user.id);
+                        const dateObj = new Date(event.eventDate);
+                        return (
+                          <div key={event.id} className={`p-5 rounded-xl border shadow-lg ${isAttending ? 'bg-medical-red/5 border-medical-red/30' : 'bg-white dark:bg-white/5 border-gray-100 dark:border-white/5'}`}>
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <h4 className="font-black text-lg">{event.eventName}</h4>
+                                <div className="flex items-center gap-3 mt-2 text-[10px] text-gray-500">
+                                  <span className="flex items-center gap-1"><MapPin size={12} /> {event.location}</span>
+                                  <span className="flex items-center gap-1"><Clock size={12} /> {event.startTime} - {event.endTime}</span>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <div className="w-12 h-12 rounded-xl bg-[#111C44] text-white flex flex-col items-center justify-center">
+                                  <span className="text-[9px] uppercase">{dateObj.toLocaleString('en-US', { month: 'short' })}</span>
+                                  <span className="text-xl font-black">{dateObj.getDate()}</span>
+                                </div>
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => handleRSVP(event.id)}
+                              className={`w-full mt-4 py-2 rounded-xl font-black text-[9px] uppercase transition-all ${isAttending ? 'bg-red-500/10 text-red-500 border border-red-500/20' : 'bg-medical-red text-white'}`}
+                            >
+                              {isAttending ? 'Cancel RSVP' : 'RSVP Now'}
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Donation History Button */}
+                <div className="mt-6">
+                  <button
+                    onClick={() => navigate('/donations/donor/history')}
+                    className="w-full flex items-center justify-center gap-2 p-4 rounded-xl bg-gray-100 dark:bg-white/5 text-gray-600 dark:text-gray-400 font-black text-[10px] uppercase tracking-wider hover:bg-medical-red hover:text-white transition-all"
+                  >
+                    <History size={16} /> View Full Donation History
+                  </button>
+                </div>
+              </>
             )}
           </div>
         </div>
@@ -314,16 +779,24 @@ const Dashboard = () => {
   );
 };
 
+// StatusBadge Component
 const StatusBadge = ({ active, label, variant }) => (
   <div className={`px-3 md:px-4 py-1 rounded-full border text-[8px] md:text-[9px] font-black uppercase tracking-widest transition-all ${
-    active ? 'bg-green-500/20 border-green-500/30 text-green-400' : variant === 'warning' ? 'bg-blue-500/20 border-blue-500/30 text-blue-400 animate-pulse' : 'bg-red-500/10 border-red-500/30 text-red-400'
+    active ? 'bg-green-500/20 border-green-500/30 text-green-400' :
+    variant === 'warning' ? 'bg-blue-500/20 border-blue-500/30 text-blue-400 animate-pulse' :
+    'bg-red-500/10 border-red-500/30 text-red-400'
   }`}>{label}</div>
 );
 
-const ProgressNode = ({ active, icon, label }) => (
-  <div className="flex flex-col items-center gap-2 md:gap-3">
-    <div className={`w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center border-2 md:border-4 transition-all duration-500 ${active ? 'bg-blue-600 border-white text-white shadow-lg shadow-blue-500/40' : 'bg-gray-100 dark:bg-[#0b1121] border-gray-200 dark:border-white/10 text-gray-400'}`}>{active ? <CheckCircle size={12} className="md:size-[16px]" /> : icon}</div>
-    <span className={`text-[7px] md:text-[9px] font-black uppercase tracking-widest text-center w-16 md:w-24 ${active ? 'text-blue-600' : 'text-gray-400 dark:text-gray-600'}`}>{label}</span>
+// ProgressStep Component
+const ProgressStep = ({ active, label }) => (
+  <div className="flex flex-col items-center">
+    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[8px] font-black ${
+      active ? 'bg-blue-500 text-white' : 'bg-gray-200 dark:bg-white/10 text-gray-400'
+    }`}>
+      {active ? <CheckCircle size={12} /> : <Clock size={10} />}
+    </div>
+    <span className="text-[6px] md:text-[7px] font-black mt-1">{label}</span>
   </div>
 );
 
