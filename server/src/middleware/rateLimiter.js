@@ -51,12 +51,12 @@ export const resetPasswordLimiter = rateLimit({
 });
 
 // ============================================
-//  Donation Management Rate Limiters
+// Donation Management Rate Limiters
 // ============================================
 
 // Donation intent registration - 5 per hour
 export const intentLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000, // 1 hour
+  windowMs: 60 * 60 * 1000,
   max: 5,
   message: {
     success: false,
@@ -72,7 +72,7 @@ export const intentLimiter = rateLimit({
 
 // Donation request submission - 3 per hour
 export const requestLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000, // 1 hour
+  windowMs: 60 * 60 * 1000,
   max: 3,
   message: {
     success: false,
@@ -88,7 +88,7 @@ export const requestLimiter = rateLimit({
 
 // Eligibility check - 10 per hour
 export const eligibilityLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000, // 1 hour
+  windowMs: 60 * 60 * 1000,
   max: 10,
   message: {
     success: false,
@@ -104,7 +104,7 @@ export const eligibilityLimiter = rateLimit({
 
 // Financial contribution submission - 3 per day
 export const contributionLimiter = rateLimit({
-  windowMs: 24 * 60 * 60 * 1000, // 24 hours
+  windowMs: 24 * 60 * 60 * 1000,
   max: 3,
   message: {
     success: false,
@@ -114,6 +114,27 @@ export const contributionLimiter = rateLimit({
   legacyHeaders: false,
   handler: (req, res, next, options) => {
     logger.warn(`Rate limit exceeded for financial contribution`, { userId: req.user?.id, ip: req.ip });
+    res.status(options.statusCode).json(options.message);
+  }
+});
+
+// ============================================
+//  Matching Engine Rate Limiter
+// ============================================
+
+// Matching engine execution - 10 per hour (admin only)
+export const matchingEngineLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 10,
+  message: {
+    success: false,
+    message: 'Too many matching engine executions. Please try again later.'
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => req.method !== 'POST', // Only limit POST requests (trigger matching)
+  handler: (req, res, next, options) => {
+    logger.warn(`Rate limit exceeded for matching engine`, { adminId: req.user?.id, ip: req.ip });
     res.status(options.statusCode).json(options.message);
   }
 });
