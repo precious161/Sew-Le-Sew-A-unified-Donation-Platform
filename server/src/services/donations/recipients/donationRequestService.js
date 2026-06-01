@@ -1,7 +1,12 @@
 import prisma from "../../../config/db.js";
 import { runBloodMatching } from "../../matching/bloodMatchingService.js";
 import { runInKindMatching } from "../../matching/inKindMatchingService.js";
+import { sendVerificationStatusEmail } from "../../emailService.js";
+import logger from "../../../utils/logger.js";
 
+/**
+ * Create a new donation request
+ */
 export const createDonationRequest = async (userId, data) => {
   const currentUser = await prisma.user.findUnique({ where: { id: userId } });
   if (!currentUser || currentUser.identityStatus !== "Verified") {
@@ -40,6 +45,7 @@ export const createDonationRequest = async (userId, data) => {
     throw error;
   }
 
+  // Validation for Blood requests
   if (donationType === "Blood" && !requiredBloodType) {
     const error = new Error(
       "Required blood type must be provided for Blood donation requests. Please select your blood type from the options."
@@ -48,6 +54,7 @@ export const createDonationRequest = async (userId, data) => {
     throw error;
   }
 
+  // Validation for In-Kind requests
   if (donationType === "In_Kind") {
     if (!itemType || !itemQuantity) {
       const error = new Error(
@@ -58,6 +65,7 @@ export const createDonationRequest = async (userId, data) => {
     }
   }
 
+  // Validation for Organ requests
   if (donationType === "Organ" && !organType) {
     const error = new Error(
       "Organ type is required for Organ donation requests. Please specify which organ you need for transplant."
@@ -66,6 +74,7 @@ export const createDonationRequest = async (userId, data) => {
     throw error;
   }
 
+  // Document validation
   if (!documentUrl) {
     const error = new Error(
       "📄 Medical Document Required: Please upload a supporting medical document (doctor's prescription, medical report, or hospital referral) to verify your donation request."
@@ -74,6 +83,7 @@ export const createDonationRequest = async (userId, data) => {
     throw error;
   }
 
+  // Hospital and doctor validation
   if (!hospitalName) {
     const error = new Error(
       "Hospital name is required. Please specify the hospital where you are receiving treatment or where the donation should be delivered."
@@ -90,15 +100,21 @@ export const createDonationRequest = async (userId, data) => {
     throw error;
   }
 
+  // Financial request validation with amount limits
   if (donationType === "Financial") {
     const parsedAmount = parseFloat(financialAmount);
-    if (isNaN(parsedAmount) || parsedAmount < 100) {
-       const error = new Error(`Minimum financial aid request is 100 Birr. Received: ${financialAmount}`);
+    if (isNaN(parsedAmount) || parsedAmount < 100 || parsedAmount > 1000000) {
+      const error = new Error(`Financial aid request must be between 100 and 1,000,000 Birr. Received: ${financialAmount}`);
       error.statusCode = 400;
       throw error;
     }
     if (!bankAccount) {
       const error = new Error("Bank account is required for fund transfer.");
+      error.statusCode = 400;
+      throw error;
+    }
+    if (!bankName) {
+      const error = new Error("Bank name is required.");
       error.statusCode = 400;
       throw error;
     }
@@ -134,9 +150,14 @@ export const createDonationRequest = async (userId, data) => {
     },
   });
 
+  logger.info(`Donation request created`, { userId, donationType, urgencyLevel });
+
   return newRequest;
 };
 
+/**
+ * Cancel a donation request (user self-cancel)
+ */
 export const cancelDonationRequest = async (userId, requestId) => {
   const request = await prisma.donationRequest.findUnique({
     where: { id: requestId },
@@ -174,9 +195,14 @@ export const cancelDonationRequest = async (userId, requestId) => {
     },
   });
 
+  logger.info(`Donation request cancelled`, { userId, requestId, donationType: request.donationType });
+
   return cancelled;
 };
 
+/**
+ * Admin verification of donation request
+ */
 export const verifyDonationRequest = async (adminId, requestId, data) => {
   const {
     approved,
@@ -187,6 +213,7 @@ export const verifyDonationRequest = async (adminId, requestId, data) => {
 
   const request = await prisma.donationRequest.findUnique({
     where: { id: requestId },
+    include: { user: true }
   });
 
   if (!request) {
@@ -207,9 +234,6 @@ export const verifyDonationRequest = async (adminId, requestId, data) => {
     const finalUrgency = correctedUrgencyLevel || request.urgencyLevel;
     const finalQuantity = correctedItemQuantity || request.itemQuantity;
 
-    const urgencyCorrected = correctedUrgencyLevel && correctedUrgencyLevel !== request.urgencyLevel;
-    const quantityCorrected = correctedItemQuantity && correctedItemQuantity !== request.itemQuantity;
-
     await prisma.donationRequest.update({
       where: { id: requestId },
       data: {
@@ -222,15 +246,8 @@ export const verifyDonationRequest = async (adminId, requestId, data) => {
     });
 
     let approvalMessage = `✅ Your ${request.donationType} donation request has been approved`;
-
-    if (urgencyCorrected || quantityCorrected) {
-      approvalMessage += ` with the following adjustments:`;
-      if (urgencyCorrected) {
-        approvalMessage += ` Urgency level adjusted from ${request.originalUrgency} to ${finalUrgency}.`;
-      }
-      if (quantityCorrected) {
-        approvalMessage += ` Item quantity adjusted from ${request.itemQuantity} to ${finalQuantity}.`;
-      }
+    if (correctedUrgencyLevel && correctedUrgencyLevel !== request.originalUrgency) {
+      approvalMessage += ` with urgency adjusted from ${request.originalUrgency} to ${finalUrgency}.`;
     } else {
       approvalMessage += ` and is now in the matching queue. You will be notified when a compatible donor is found.`;
     }
@@ -242,19 +259,25 @@ export const verifyDonationRequest = async (adminId, requestId, data) => {
       },
     });
 
-    if (request.donationType === "Blood") {
-      try {
-        await runBloodMatching();
-      } catch (matchingError) {
-        console.error("Blood matching engine error after verification:", matchingError);
-      }
-    } else if (request.donationType === "In_Kind") {
-      try {
-        await runInKindMatching();
-      } catch (matchingError) {
-        console.error("In-Kind matching engine error after verification:", matchingError);
-      }
+    // Send email notification
+    try {
+      await sendVerificationStatusEmail(request.user.EmailAddress, request.user.FirstName, {
+        type: 'request',
+        status: 'approved',
+        category: request.donationType,
+        itemType: request.itemType
+      });
+    } catch (emailError) {
+      logger.error('Failed to send approval email:', emailError);
     }
+
+    if (request.donationType === "Blood") {
+      try { await runBloodMatching(); } catch (error) { logger.error("Blood matching error after verification:", error); }
+    } else if (request.donationType === "In_Kind") {
+      try { await runInKindMatching(); } catch (error) { logger.error("In-Kind matching error after verification:", error); }
+    }
+
+    logger.info(`Donation request approved`, { adminId, requestId, donationType: request.donationType });
   } else {
     if (!rejectionReason) {
       const error = new Error("Rejection reason is required when rejecting a donation request. Please specify why the request cannot be approved.");
@@ -278,9 +301,27 @@ export const verifyDonationRequest = async (adminId, requestId, data) => {
         message: `❌ Your ${request.donationType} donation request has been reviewed and could not be approved. Reason: ${rejectionReason}. Please contact the Red Cross for more information or to appeal this decision.`,
       },
     });
+
+    // Send email notification
+    try {
+      await sendVerificationStatusEmail(request.user.EmailAddress, request.user.FirstName, {
+        type: 'request',
+        status: 'rejected',
+        category: request.donationType,
+        reason: rejectionReason,
+        itemType: request.itemType
+      });
+    } catch (emailError) {
+      logger.error('Failed to send rejection email:', emailError);
+    }
+
+    logger.info(`Donation request rejected`, { adminId, requestId, reason: rejectionReason });
   }
 };
 
+/**
+ * Get pending verification requests for admin
+ */
 export const getPendingVerificationRequests = async (page = 1, limit = 20, additionalWhere = {}) => {
   const skip = (page - 1) * limit;
 
@@ -324,6 +365,9 @@ export const getPendingVerificationRequests = async (page = 1, limit = 20, addit
   };
 };
 
+/**
+ * Get approved financial requests for distribution
+ */
 export const getApprovedFinancialRequests = async (page = 1, limit = 20) => {
   const skip = (page - 1) * limit;
 
@@ -367,6 +411,9 @@ export const getApprovedFinancialRequests = async (page = 1, limit = 20) => {
   };
 };
 
+/**
+ * Get user's own donation requests
+ */
 export const getMyRequests = async (userId) => {
   return await prisma.donationRequest.findMany({
     where: { recipientId: userId },

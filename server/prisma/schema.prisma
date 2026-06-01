@@ -115,6 +115,10 @@ model User {
   identityVerifiedBy      String?
   identityRejectionReason String?
 
+  // Password reset fields
+  resetPasswordToken   String?
+  resetPasswordExpires DateTime?
+
   // Relations
   notification           Notification[]
   eligibilityLogs        EligibilityLog[]
@@ -358,6 +362,7 @@ model FinancialContribution {
   id             String          @id @default(uuid())
   donorId        String
   amount         Float
+  remainingAmount Float          @default(0)
   currency       String          @default("ETB")
   purpose        String?
   status         FinancialStatus @default(Pending)

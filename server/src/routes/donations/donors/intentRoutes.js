@@ -11,6 +11,7 @@ import { validateRequest } from "../../../middleware/donations/validateRequest.j
 import { protect } from "../../../middleware/authMiddleware.js";
 import { authorize } from "../../../middleware/users/roleMiddleware.js";
 import { upload } from "../../../config/cloudinary.js";
+import { validateFileUpload } from "../../../middleware/fileValidation.js";
 
 const router = Router();
 
@@ -20,6 +21,7 @@ router.post(
   protect,
   authorize("Donor"),
   upload.single("document"),
+  validateFileUpload("medical_document"), // NEW: Enhanced validation
   validateRequest(registerIntentSchema),
   handleRegisterIntent
 );
@@ -39,7 +41,6 @@ router.get(
 );
 
 // ── Admin Routes ──
-
 router.get(
   "/pending",
   protect,
@@ -47,13 +48,11 @@ router.get(
   handleGetPendingIntents
 );
 
-
 router.patch(
   "/:id/verify",
   protect,
   authorize("Red_Cross_Admin"),
   handleVerifyIntent
 );
-
 
 export default router;

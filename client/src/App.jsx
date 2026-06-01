@@ -4,6 +4,7 @@ import { AuthProvider } from './context/AuthProvider';
 import { ThemeProvider } from './context/ThemeContext';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import { useAuth } from './hooks/useAuth';
+import OAuthRedirect from './pages/auth/OAuthRedirect';
 
 // Shared Pages
 import SignupPage from './pages/auth/SignupPage';
@@ -13,6 +14,10 @@ import Profile from './pages/Profile';
 import LandingPage from './pages/landing/LandingPage';
 import EventsPage from './pages/EventsPage';
 import PlatformPage from './pages/PlatformPage';
+import ForgotPassword from './pages/auth/ForgotPassword';
+import ResetPassword from './pages/auth/ResetPassword';
+
+
 
 // Admin Pages
 import AdminDashboard from './pages/admin/AdminDashboard';
@@ -59,6 +64,9 @@ function App() {
             <Route path="/platform" element={<PlatformPage />} />
             <Route path="/signup" element={<SignupPage />} />
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/oauth-redirect" element={<OAuthRedirect />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
 
             {/* ===== PROTECTED USER ROUTES ===== */}
             <Route

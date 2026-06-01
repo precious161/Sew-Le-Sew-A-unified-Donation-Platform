@@ -18,6 +18,7 @@ const EligibilityQuiz = () => {
   const [userProfile, setUserProfile] = useState(null);
   const [result, setResult] = useState(null);
   const [category, setCategory] = useState('Blood');
+  const [autoSaveStatus, setAutoSaveStatus] = useState(null);
 
   const [answers, setAnswers] = useState({
     MIN_AGE: '',
@@ -31,6 +32,7 @@ const EligibilityQuiz = () => {
     QUALITY_CERTIFIED: 'true'
   });
 
+  // Load user profile
   useEffect(() => {
     const syncWithRegistry = async () => {
       try {
@@ -54,6 +56,48 @@ const EligibilityQuiz = () => {
     syncWithRegistry();
   }, [category]);
 
+  // Auto-save functionality
+  useEffect(() => {
+    const loadSavedProgress = () => {
+      try {
+        const saved = localStorage.getItem('eligibility_progress');
+        if (saved) {
+          const { category: savedCat, answers: savedAnswers, timestamp } = JSON.parse(saved);
+          if (Date.now() - timestamp < 24 * 60 * 60 * 1000) {
+            setCategory(savedCat);
+            setAnswers(prev => ({ ...prev, ...savedAnswers }));
+            setAutoSaveStatus({ type: 'restored', message: 'Previous progress restored' });
+            setTimeout(() => setAutoSaveStatus(null), 3000);
+          } else {
+            localStorage.removeItem('eligibility_progress');
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load saved progress:', error);
+      }
+    };
+    loadSavedProgress();
+  }, []);
+
+  // Auto-save on changes
+  useEffect(() => {
+    if (!category || Object.values(answers).every(v => !v)) return;
+
+    const saveProgress = () => {
+      const progress = {
+        category,
+        answers,
+        timestamp: Date.now()
+      };
+      localStorage.setItem('eligibility_progress', JSON.stringify(progress));
+      setAutoSaveStatus({ type: 'saved', message: 'Progress saved' });
+      setTimeout(() => setAutoSaveStatus(null), 2000);
+    };
+
+    const debounceTimer = setTimeout(saveProgress, 3000);
+    return () => clearTimeout(debounceTimer);
+  }, [category, answers]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -63,6 +107,8 @@ const EligibilityQuiz = () => {
     try {
       const res = await DonationService.checkEligibility(category, cleanAnswers);
       setResult(res.data);
+      // Clear saved progress on successful submission
+      localStorage.removeItem('eligibility_progress');
     } catch {
       alert("Submission Error: Please answer all visible questions.");
     } finally {
@@ -115,7 +161,18 @@ const EligibilityQuiz = () => {
           <button onClick={toggleTheme} className="p-3.5 rounded-2xl bg-white dark:bg-white/5 dark:text-white">{isDarkMode ? <Sun size={20} className="text-yellow-400" /> : <Moon size={20} />}</button>
         </div>
 
-        {/* REMOVED Financial tab - Only Blood, Organ, Supplies */}
+        {/* Auto-save status indicator */}
+        {autoSaveStatus && (
+          <div className={`mb-4 p-3 rounded-xl text-center text-[10px] font-black uppercase tracking-widest ${
+            autoSaveStatus.type === 'saved'
+              ? 'bg-green-500/10 text-green-500'
+              : 'bg-blue-500/10 text-blue-500'
+          }`}>
+            {autoSaveStatus.message}
+          </div>
+        )}
+
+        {/* Category Tabs - Blood, Organ, Supplies (No Financial) */}
         <div className="flex flex-wrap gap-4 mb-10 overflow-x-auto no-scrollbar pb-2">
             <CategoryTab active={category === 'Blood'} label="Blood" icon={<Droplets size={14}/>} onClick={() => setCategory('Blood')} />
             <CategoryTab active={category === 'Organ'} label="Organ" icon={<Heart size={14}/>} onClick={() => setCategory('Organ')} />
@@ -182,12 +239,14 @@ const EligibilityQuiz = () => {
 const CategoryTab = ({ active, label, icon, onClick }) => (
     <button onClick={onClick} type="button" className={`px-8 py-3.5 rounded-2xl flex items-center gap-3 font-black text-[10px] uppercase border ${active ? 'bg-medical-red text-white border-medical-red shadow-lg' : 'bg-white dark:bg-[#111C44] text-gray-400 border-gray-100 dark:border-white/5'}`}>{icon} {label}</button>
 );
+
 const Question = ({ label, value, onChange, placeholder }) => (
     <div className="space-y-3 text-left">
         <label className="text-[10px] font-black uppercase text-gray-400 dark:text-white/40 ml-2">{label}</label>
         <input type="number" required placeholder={placeholder} value={value} onChange={(e) => onChange(e.target.value)} className="w-full p-5 rounded-[22px] bg-gray-50 dark:bg-[#0b1121] outline-none font-bold text-sm dark:text-white" />
     </div>
 );
+
 const BooleanBtn = ({ active, label, onClick }) => (
     <button type="button" onClick={onClick} className={`py-3 rounded-xl font-black text-[9px] uppercase ${active ? 'bg-medical-red text-white' : 'text-gray-400'}`}>{label}</button>
 );

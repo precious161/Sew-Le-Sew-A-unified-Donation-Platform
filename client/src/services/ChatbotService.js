@@ -3,15 +3,13 @@ import api from '../api/axios';
 const ChatbotService = {
   sendMessage: async (message) => {
     try {
-      console.log('Sending message to backend:', message);
       const response = await api.post('/ai/chat', { message });
-      console.log('Backend response:', response.data);
       return response.data;
     } catch (error) {
       console.error('Chatbot API Error:', error.response?.data || error.message);
       return {
         success: false,
-        reply: 'Sorry, I\'m having trouble connecting. Please try again later.',
+        reply: "Sorry, I'm having trouble connecting to the Red Cross servers. Please try again later.",
         suggestions: [],
       };
     }
@@ -20,7 +18,6 @@ const ChatbotService = {
   getChatHistory: async () => {
     try {
       const response = await api.get('/ai/chat/history');
-      console.log('History response:', response.data);
       return response.data;
     } catch (error) {
       console.error('Failed to fetch chat history:', error.response?.data || error.message);

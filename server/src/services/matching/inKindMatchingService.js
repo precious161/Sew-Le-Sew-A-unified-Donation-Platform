@@ -1,8 +1,9 @@
 import prisma from "../../config/db.js";
+import logger from "../../utils/logger.js";
 
 export const runInKindMatching = async () => {
   try {
-    console.log('🔄 Running In-Kind Matching Engine...');
+    logger.info('🔄 Running In-Kind Matching Engine...');
 
     const pendingRequests = await prisma.donationRequest.findMany({
       where: { donationType: "In_Kind", status: "Pending", itemType: { not: null } },
@@ -10,7 +11,7 @@ export const runInKindMatching = async () => {
     });
 
     if (pendingRequests.length === 0) {
-      console.log('No pending In-Kind requests found');
+      logger.info('No pending In-Kind requests found');
       return;
     }
 
@@ -19,7 +20,7 @@ export const runInKindMatching = async () => {
     });
 
     if (activeIntents.length === 0) {
-      console.log('No active In-Kind donors found');
+      logger.info('No active In-Kind donors found');
       return;
     }
 
@@ -41,7 +42,6 @@ export const runInKindMatching = async () => {
 
       if (compatibleIntents.length === 0) continue;
 
-      // Pick donor whose quantity is closest to required
       const bestIntent = [...compatibleIntents].sort((a, b) => {
         const diffA = (a.quantity || 0) - requiredQuantity;
         const diffB = (b.quantity || 0) - requiredQuantity;
@@ -79,20 +79,23 @@ export const runInKindMatching = async () => {
       usedIntentIds.add(bestIntent.id);
     }
 
-    console.log(`✅ In-Kind matching completed! Created ${matchCount} matches.`);
+    logger.info(`✅ In-Kind matching completed! Created ${matchCount} matches.`);
   } catch (error) {
-    console.error("runInKindMatching Error:", error);
+    logger.error("runInKindMatching Error:", error);
     throw error;
   }
 };
 
 export const handleInKindDonorResponse = async (matchId, donorId, accepted) => {
+  logger.info(`🔄 Donor ${donorId} responding to In-Kind match ${matchId}: ${accepted ? 'ACCEPTED' : 'DECLINED'}`);
+
   const match = await prisma.match.findUnique({
     where: { id: matchId },
     include: { intent: true, request: true }
   });
 
   if (!match || match.intent.userId !== donorId) {
+    logger.warn(`Unauthorized In-Kind match response attempt`, { matchId, donorId });
     throw new Error("Match not found or unauthorized.");
   }
 
@@ -111,10 +114,11 @@ export const handleInKindDonorResponse = async (matchId, donorId, accepted) => {
       await tx.notification.create({
         data: {
           userId: donorId,
-          message: `✅ Thank you for confirming! Please bring ${match.intent.quantity} unit(s) of ${match.intent.itemType} to ${match.intent.location}.`
+          message: `✅ Thank you for confirming! Please bring ${match.intent.quantity || 1} unit(s) of ${match.intent.itemType} to ${match.intent.location}.`
         }
       });
     });
+    logger.info(`✅ In-Kind match accepted`, { matchId, donorId });
   } else {
     await prisma.$transaction(async (tx) => {
       await tx.match.update({
@@ -130,22 +134,25 @@ export const handleInKindDonorResponse = async (matchId, donorId, accepted) => {
         data: { status: "Pending" }
       });
     });
+    logger.info(`❌ In-Kind match declined`, { matchId, donorId });
     await runInKindMatching();
   }
 };
 
 export const confirmInKindCompletion = async (matchId, adminId) => {
-  console.log(`✅ Admin ${adminId} confirming completion of In-Kind match ${matchId}`);
+  logger.info(`✅ Admin ${adminId} confirming completion of In-Kind match ${matchId}`);
 
   const match = await prisma.match.findUnique({
     where: { id: matchId },
     include: { intent: true, request: true }
   });
 
-  if (!match) throw new Error("Match not found.");
+  if (!match) {
+    logger.error(`In-Kind match not found: ${matchId}`);
+    throw new Error("Match not found.");
+  }
 
   await prisma.$transaction(async (tx) => {
-    // 1. Update records
     await tx.match.update({
       where: { id: matchId },
       data: { status: "Completed", completedAt: new Date(), confirmedBy: adminId }
@@ -159,7 +166,6 @@ export const confirmInKindCompletion = async (matchId, adminId) => {
       data: { status: "Fulfilled" }
     });
 
-    // 2. Set Cooldown (30 days for in-kind donations)
     await tx.userEligibilityStatus.upsert({
       where: {
         userId_category: {
@@ -179,7 +185,6 @@ export const confirmInKindCompletion = async (matchId, adminId) => {
       }
     });
 
-    // 3. CREATE DONATION HISTORY
     await tx.donationHistory.create({
       data: {
         donorId: match.intent.userId,
@@ -193,7 +198,6 @@ export const confirmInKindCompletion = async (matchId, adminId) => {
       }
     });
 
-    // 4. Notifications
     await tx.notification.create({
       data: {
         userId: match.intent.userId,
@@ -208,7 +212,7 @@ export const confirmInKindCompletion = async (matchId, adminId) => {
     });
   });
 
-  console.log(`✅ In-Kind donation ${matchId} completed and added to history`);
+  logger.info(`✅ In-Kind donation ${matchId} completed and added to history`);
 };
 
 export const getAllInKindMatches = async (page = 1, limit = 20) => {

@@ -1,4 +1,5 @@
 import prisma from "../../config/db.js";
+import logger from "../../utils/logger.js";
 
 const BLOOD_COMPATIBILITY = {
   "O-": ["O-", "O+", "A-", "A+", "B-", "B+", "AB-", "AB+"],
@@ -21,32 +22,28 @@ const ORGAN_SENSITIVITY = {
   cornea: { requireSizeMatch: false, maxVariance: 100 },
 };
 
-// ─────────────────────────────────────────
-// MAIN ORGAN MATCHING ENGINE
-// ─────────────────────────────────────────
 export const runOrganMatching = async () => {
   try {
-    console.log('🔄 Starting Organ Matching Engine...');
-    console.log(`⏰ Match run at: ${new Date().toLocaleString()}`);
+    logger.info('🔄 Starting Organ Matching Engine...');
+    logger.info(`⏰ Match run at: ${new Date().toLocaleString()}`);
 
     const activeIntents = await prisma.donationIntent.findMany({
       where: { category: "Organ", status: "Active" },
       include: { user: { include: { healthInfo: true } } },
     });
-    console.log(`📋 Found ${activeIntents.length} active organ donors`);
+    logger.info(`📋 Found ${activeIntents.length} active organ donors`);
 
     const pendingRequests = await prisma.donationRequest.findMany({
       where: { donationType: "Organ", status: "Pending" },
       include: { user: { include: { healthInfo: true } } },
     });
-    console.log(`📋 Found ${pendingRequests.length} pending organ requests`);
+    logger.info(`📋 Found ${pendingRequests.length} pending organ requests`);
 
     if (activeIntents.length === 0 || pendingRequests.length === 0) {
-      console.log('⚠️ No donors or requests to match. Exiting organ matching.');
+      logger.info('⚠️ No donors or requests to match. Exiting organ matching.');
       return;
     }
 
-    // Score requests by urgency and waiting time
     const today = new Date();
     const scoredRequests = pendingRequests.map(request => {
       let score = URGENCY_SCORES[request.urgencyLevel] || 0;
@@ -64,7 +61,7 @@ export const runOrganMatching = async () => {
     for (const request of scoredRequests) {
       const requiredOrgan = request.organType?.toLowerCase().trim();
       if (!requiredOrgan) {
-        console.log(`⚠️ Request ${request.id} has no organType specified, skipping`);
+        logger.warn(`Request ${request.id} has no organType specified, skipping`);
         skipCount++;
         continue;
       }
@@ -78,51 +75,26 @@ export const runOrganMatching = async () => {
       for (const intent of activeIntents) {
         if (usedIntentIds.has(intent.id)) continue;
 
-        console.log(`\n--- EVALUATING DONOR: ${intent.user.FirstName} FOR RECIPIENT: ${request.user.FirstName} ---`);
-
-        // TIER 1: Organ
         const offeredOrgan = intent.itemType?.toLowerCase().trim();
-        if (offeredOrgan !== requiredOrgan) {
-          console.log(`❌ FAILED TIER 1: Donor offered '${offeredOrgan}', Recipient needs '${requiredOrgan}'`);
-          continue;
-        }
-        console.log(`✅ PASSED TIER 1: Organ Type`);
+        if (offeredOrgan !== requiredOrgan) continue;
 
-        // TIER 2: Blood
         const donorBloodType = intent.user.bloodType;
-        if (!donorBloodType || !BLOOD_COMPATIBILITY[donorBloodType]?.includes(requiredBloodType)) {
-          console.log(`❌ FAILED TIER 2: Donor blood '${donorBloodType}' incompatible with Recipient '${requiredBloodType}'`);
-          continue;
-        }
-        console.log(`✅ PASSED TIER 2: Blood Type`);
+        if (!donorBloodType || !BLOOD_COMPATIBILITY[donorBloodType]?.includes(requiredBloodType)) continue;
 
-        // TIER 3: Geography
         const donorLocation = intent.location?.toLowerCase() || "";
         const recipientLocation = request.hospitalName?.toLowerCase() || "";
         const isSameRegion = donorLocation.includes("addis") && recipientLocation.includes("addis");
 
-        if ((requiredOrgan === 'heart' || requiredOrgan === 'lung') && !isSameRegion) {
-          console.log(`❌ FAILED TIER 3: Geography. Donor is at '${donorLocation}', Recipient at '${recipientLocation}'`);
-          continue;
-        }
-        console.log(`✅ PASSED TIER 3: Geography`);
+        if ((requiredOrgan === 'heart' || requiredOrgan === 'lung') && !isSameRegion) continue;
 
-        // TIER 4: Biometrics
         if (organRules.requireSizeMatch && recipientWeight) {
           const donorWeight = intent.user.healthInfo?.weight;
-          if (!donorWeight) {
-            console.log(`❌ FAILED TIER 4: Donor weight is missing!`);
-            continue;
-          }
+          if (!donorWeight) continue;
 
           const weightDifference = Math.abs(donorWeight - recipientWeight);
           const percentageDifference = (weightDifference / recipientWeight) * 100;
-          if (percentageDifference > organRules.maxVariance) {
-            console.log(`❌ FAILED TIER 4: Size Variance too high. Diff is ${percentageDifference.toFixed(1)}% (Max is ${organRules.maxVariance}%)`);
-            continue;
-          }
+          if (percentageDifference > organRules.maxVariance) continue;
         }
-        console.log(`✅ PASSED TIER 4: Biometrics`);
 
         compatibleIntents.push(intent);
       }
@@ -163,18 +135,15 @@ export const runOrganMatching = async () => {
       usedIntentIds.add(bestIntent.id);
     }
 
-    console.log(`✅ Organ matching completed! Created ${matchCount} matches. Skipped ${skipCount} requests.`);
+    logger.info(`✅ Organ matching completed! Created ${matchCount} matches. Skipped ${skipCount} requests.`);
   } catch (error) {
-    console.error("runOrganMatching Error:", error);
+    logger.error("runOrganMatching Error:", error);
     throw error;
   }
 };
 
-// ─────────────────────────────────────────
-// DONOR RESPONSE HANDLER
-// ─────────────────────────────────────────
 export const handleOrganDonorResponse = async (matchId, donorId, accepted) => {
-  console.log(`🔄 Donor ${donorId} responding to match ${matchId}: ${accepted ? 'ACCEPTED' : 'DECLINED'}`);
+  logger.info(`🔄 Donor ${donorId} responding to organ match ${matchId}: ${accepted ? 'ACCEPTED' : 'DECLINED'}`);
 
   const match = await prisma.match.findUnique({
     where: { id: matchId },
@@ -182,10 +151,12 @@ export const handleOrganDonorResponse = async (matchId, donorId, accepted) => {
   });
 
   if (!match) {
+    logger.error(`Organ match not found: ${matchId}`);
     throw new Error("Match not found.");
   }
 
   if (match.intent.userId !== donorId) {
+    logger.warn(`Unauthorized organ match response attempt`, { matchId, donorId });
     throw new Error("Unauthorized.");
   }
 
@@ -210,6 +181,7 @@ export const handleOrganDonorResponse = async (matchId, donorId, accepted) => {
         }
       });
     });
+    logger.info(`✅ Organ match accepted`, { matchId, donorId });
   } else {
     await prisma.$transaction(async (tx) => {
       await tx.match.update({
@@ -225,16 +197,13 @@ export const handleOrganDonorResponse = async (matchId, donorId, accepted) => {
         data: { status: "Pending" }
       });
     });
-    // Try to find another donor
+    logger.info(`❌ Organ match declined`, { matchId, donorId });
     await runOrganMatching();
   }
 };
 
-// ─────────────────────────────────────────
-// ADMIN COMPLETION HANDLER
-// ─────────────────────────────────────────
 export const confirmOrganCompletion = async (matchId, adminId) => {
-  console.log(`✅ Admin ${adminId} confirming completion of match ${matchId}`);
+  logger.info(`✅ Admin ${adminId} confirming completion of organ match ${matchId}`);
 
   const match = await prisma.match.findUnique({
     where: { id: matchId },
@@ -242,29 +211,26 @@ export const confirmOrganCompletion = async (matchId, adminId) => {
   });
 
   if (!match) {
+    logger.error(`Organ match not found: ${matchId}`);
     throw new Error("Match not found.");
   }
 
   await prisma.$transaction(async (tx) => {
-    // 1. Update match status
     await tx.match.update({
       where: { id: matchId },
       data: { status: "Completed", completedAt: new Date(), confirmedBy: adminId }
     });
 
-    // 2. Update intent status
     await tx.donationIntent.update({
       where: { id: match.intentId },
       data: { status: "Completed" }
     });
 
-    // 3. Update request status
     await tx.donationRequest.update({
       where: { id: match.requestId },
       data: { status: "Fulfilled" }
     });
 
-    // 4. Set donor cooldown (10 years for organ donation)
     await tx.userEligibilityStatus.upsert({
       where: {
         userId_category: {
@@ -284,7 +250,6 @@ export const confirmOrganCompletion = async (matchId, adminId) => {
       }
     });
 
-    // 5. Create donation history
     await tx.donationHistory.create({
       data: {
         donorId: match.intent.userId,
@@ -298,7 +263,6 @@ export const confirmOrganCompletion = async (matchId, adminId) => {
       }
     });
 
-    // 6. Notifications
     await tx.notification.create({
       data: {
         userId: match.intent.userId,
@@ -314,12 +278,9 @@ export const confirmOrganCompletion = async (matchId, adminId) => {
     });
   });
 
-  console.log(`✅ Organ donation ${matchId} completed successfully`);
+  logger.info(`✅ Organ donation ${matchId} completed successfully`);
 };
 
-// ─────────────────────────────────────────
-// GETTER FUNCTIONS
-// ─────────────────────────────────────────
 export const getAllOrganMatches = async (page = 1, limit = 20) => {
   const skip = (page - 1) * limit;
   const [matches, totalCount] = await Promise.all([

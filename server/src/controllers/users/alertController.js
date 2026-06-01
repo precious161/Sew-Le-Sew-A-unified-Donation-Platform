@@ -1,6 +1,6 @@
-// alertController.js
 import { StatusCodes } from "http-status-codes";
 import prisma from "../../config/db.js";
+import logger from "../../utils/logger.js";
 
 export const getMyNotifications = async (req, res) => {
   try {
@@ -15,7 +15,7 @@ export const getMyNotifications = async (req, res) => {
       data: alerts,
     });
   } catch (error) {
-    console.error("getMyNotifications Error:", error);
+    logger.error("getMyNotifications Error:", error);
     return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
       success: false,
       message: "Error fetching alerts",
@@ -27,7 +27,6 @@ export const markAsRead = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Verify notification belongs to this user before updating
     const notification = await prisma.notification.findUnique({
       where: { id },
     });
@@ -57,7 +56,7 @@ export const markAsRead = async (req, res) => {
       data: updatedNotification,
     });
   } catch (error) {
-    console.error("markAsRead Error:", error);
+    logger.error("markAsRead Error:", error);
     return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
       success: false,
       message: "Update failed",
@@ -65,7 +64,6 @@ export const markAsRead = async (req, res) => {
   }
 };
 
-// Mark all notifications as read at once
 export const markAllAsRead = async (req, res) => {
   try {
     await prisma.notification.updateMany({
@@ -81,7 +79,7 @@ export const markAllAsRead = async (req, res) => {
       message: "All notifications marked as read",
     });
   } catch (error) {
-    console.error("markAllAsRead Error:", error);
+    logger.error("markAllAsRead Error:", error);
     return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
       success: false,
       message: "Failed to mark all notifications as read",
@@ -115,13 +113,15 @@ export const sendAlert = async (req, res) => {
       data: { userId, message },
     });
 
+    logger.info(`Alert sent`, { adminId: req.user.id, targetUserId: userId });
+
     return res.status(StatusCodes.CREATED).json({
       success: true,
       message: "Alert dispatched successfully",
       data: alert,
     });
   } catch (error) {
-    console.error("sendAlert Error:", error);
+    logger.error("sendAlert Error:", error);
     return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
       success: false,
       message: "Failed to dispatch alert",
