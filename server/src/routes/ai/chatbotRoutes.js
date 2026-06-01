@@ -10,7 +10,7 @@ import {
 const router = Router();
 
 
-router.post('/chat', protect, chat);
+router.post('/chat', chat);
 
 
 router.get('/chat/history', protect, getHistory);
