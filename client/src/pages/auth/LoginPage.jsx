@@ -141,9 +141,10 @@ const LoginPage = () => {
           </div>
 
           {/* Google Sign In Button */}
+         {/* Google Sign In Button */}
           <button
             type="button"
-            onClick={() => window.location.href = `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/auth/google`}
+            onClick={() => window.location.href = 'http://localhost:5000/api/auth/google'}
             className="w-full flex items-center justify-center gap-2 sm:gap-3 px-4 py-3 sm:py-3.5 border border-white/20 rounded-2xl bg-white/5 hover:bg-white/10 transition-all group"
           >
             <svg className="h-5 w-5 sm:h-5 sm:w-5" viewBox="0 0 24 24">

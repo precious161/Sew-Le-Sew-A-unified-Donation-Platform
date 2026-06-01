@@ -1,0 +1,12 @@
+{
+  "dockerfile": "Dockerfile",
+  "env": {
+    "NODE_ENV": "production"
+  },
+  "ports": [
+    {
+      "port": 5000,
+      "expose": 80
+    }
+  ]
+}

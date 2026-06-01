@@ -349,10 +349,10 @@ model Match {
   intent          DonationIntent  @relation(fields: [intentId], references: [id])
   request         DonationRequest @relation(fields: [requestId], references: [id])
   confirmedByUser User?           @relation("MatchConfirmer", fields: [confirmedBy], references: [id])
+  donationHistory DonationHistory?
 
   @@unique([requestId, status])
-donationHistory DonationHistory?
- @@index([intentId])
+  @@index([intentId])
   @@index([requestId])
   @@index([status])
 }

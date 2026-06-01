@@ -1,8 +1,21 @@
-// src/api/axios.js
 import axios from 'axios';
 
+// Safely get the API URL from environment variables, fallback to localhost
+let apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
+// Bulletproof fix: If the URL ends with a slash, remove it first
+if (apiUrl.endsWith('/')) {
+  apiUrl = apiUrl.slice(0, -1);
+}
+
+// Bulletproof fix: If the URL does NOT end with '/api', add it.
+// This fixes the 404 errors when calling endpoints like /auth/login
+if (!apiUrl.endsWith('/api')) {
+  apiUrl = `${apiUrl}/api`;
+}
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
+  baseURL: apiUrl,
   headers: {
     'Content-Type': 'application/json',
   },

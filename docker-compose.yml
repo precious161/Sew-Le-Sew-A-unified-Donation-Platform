@@ -1,5 +1,8 @@
+# docker-compose.yml
+version: "3.8"
+
 services:
-  sewlesew_db:
+  postgres:
     image: postgres:16-alpine
     container_name: sewlesew-db
     restart: always
@@ -11,6 +14,38 @@ services:
       - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    networks:
+      - sewlesew-network
+
+  backend:
+    build: ./backend
+    container_name: sewlesew-backend
+    ports:
+      - "5000:5000"
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://precious:sewLesew3_db@postgres:5432/sewlesew_db
+    depends_on:
+      - postgres
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    networks:
+      - sewlesew-network
+
+  frontend:
+    build: ./frontend
+    container_name: sewlesew-frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+    networks:
+      - sewlesew-network
 
 volumes:
   postgres_data:
+
+networks:
+  sewlesew-network:
+    driver: bridge
