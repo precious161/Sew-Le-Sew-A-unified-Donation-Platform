@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { protect } from "../../middleware/authMiddleware.js";
 import { authorize } from "../../middleware/users/roleMiddleware.js";
-import { validateRequest } from "../../middleware/donations/validateRequest.js"; // Adjust path if needed
+import { validateRequest } from "../../middleware/donations/validateRequest.js";
 import { eventSchema, eventStatusSchema } from "../../validations/events/eventSchema.js";
 import * as EventController from "../../controllers/events/eventController.js";
 
@@ -26,6 +26,12 @@ router.get(
   EventController.handleGetAdminEvents
 );
 
+router.get(
+  "/admin/stats",
+  protect,
+  authorize("Red_Cross_Admin"),
+  EventController.handleGetEventStats
+);
 
 router.post(
   "/",
@@ -35,7 +41,6 @@ router.post(
   EventController.handleCreateEvent
 );
 
-
 router.put(
   "/:id",
   protect,
@@ -43,7 +48,6 @@ router.put(
   validateRequest(eventSchema),
   EventController.handleUpdateEventDetails
 );
-
 
 router.patch(
   "/:id/status",
