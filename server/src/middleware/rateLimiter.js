@@ -119,7 +119,7 @@ export const contributionLimiter = rateLimit({
 });
 
 // ============================================
-//  Matching Engine Rate Limiter
+// Matching Engine Rate Limiter
 // ============================================
 
 // Matching engine execution - 10 per hour (admin only)
@@ -138,3 +138,4 @@ export const matchingEngineLimiter = rateLimit({
     res.status(options.statusCode).json(options.message);
   }
 });
+

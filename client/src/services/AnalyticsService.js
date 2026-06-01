@@ -8,7 +8,6 @@ const AnalyticsService = {
   getPublicStats: async () => {
     try {
       const response = await api.get('/ai/analytics/public-stats');
-      console.log('Public stats response:', response.data);
       return response.data;
     } catch (error) {
       console.error('Failed to fetch public stats:', error);
@@ -23,7 +22,6 @@ const AnalyticsService = {
   getStats: async () => {
     try {
       const response = await api.get('/ai/analytics/stats');
-      console.log('Admin stats response:', response.data);
       return response.data;
     } catch (error) {
       console.error('Failed to fetch stats:', error);
@@ -38,7 +36,6 @@ const AnalyticsService = {
   getPredictions: async () => {
     try {
       const response = await api.get('/ai/analytics/predictions');
-      console.log('Predictions response:', response.data);
       return response.data;
     } catch (error) {
       console.error('Failed to fetch predictions:', error);
@@ -47,15 +44,16 @@ const AnalyticsService = {
   },
 
   /**
-   * Export analytics as PDF ( Admin Only )
+   * Export analytics as PDF (Admin Only)
    */
   exportPDFReport: async () => {
     try {
       const response = await api.get('/ai/analytics/export/pdf', {
-        responseType: 'blob',
+        responseType: 'blob', // Required to handle file downloads properly
       });
 
-      const url = window.URL.createObjectURL(new Blob([response.data]));
+      // Safely create a download link for the PDF blob
+      const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
       const link = document.createElement('a');
       link.href = url;
       const date = new Date().toISOString().split('T')[0];
@@ -77,12 +75,13 @@ const AnalyticsService = {
    */
   exportReport: async () => {
     try {
-      const response = await api.get('/ai/analytics/export', {
-        responseType: 'blob',
+      // FIXED: Route updated to match backend (/export/csv)
+      const response = await api.get('/ai/analytics/export/csv', {
+        responseType: 'blob', // Required to handle file downloads properly
       });
 
-      // Create download link
-      const url = window.URL.createObjectURL(new Blob([response.data]));
+      // Safely create a download link for the CSV blob
+      const url = window.URL.createObjectURL(new Blob([response.data], { type: 'text/csv' }));
       const link = document.createElement('a');
       link.href = url;
       const date = new Date().toISOString().split('T')[0];
@@ -94,7 +93,7 @@ const AnalyticsService = {
 
       return { success: true };
     } catch (error) {
-      console.error('Export failed:', error);
+      console.error('CSV Export failed:', error);
       return { success: false };
     }
   },

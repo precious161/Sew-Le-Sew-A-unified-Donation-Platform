@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { protect } from '../../middleware/authMiddleware.js';
+import { protect, optionalAuth } from '../../middleware/authMiddleware.js';
 import {
   chat,
   getHistory,
@@ -9,10 +9,10 @@ import {
 
 const router = Router();
 
+//  'optionalAuth' so anyone on the landing page can chat!
+router.post('/chat', optionalAuth, chat);
 
-router.post('/chat', protect, chat);
-
-
+// Protected routes - require login
 router.get('/chat/history', protect, getHistory);
 router.delete('/chat/:id', protect, deleteConversation);
 router.delete('/chat/history/all', protect, deleteAllConversations);

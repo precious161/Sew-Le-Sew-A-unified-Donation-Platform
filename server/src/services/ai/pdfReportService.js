@@ -1,4 +1,5 @@
 import PDFDocument from 'pdfkit';
+import logger from '../../utils/logger.js';
 
 export const generatePDFReport = async (stats, predictions) => {
   return new Promise((resolve, reject) => {
@@ -152,7 +153,7 @@ export const generatePDFReport = async (stats, predictions) => {
       doc.moveDown(1);
 
       if (stats.bloodTypeDistribution && stats.bloodTypeDistribution.length > 0) {
-        const totalDonors = stats.stats.totalDonors || 1;
+        const totalDonors = stats.stats?.totalDonors || 1; // Fallback to 1 to prevent division by zero
         let barY = 120;
 
         stats.bloodTypeDistribution.forEach((item, index) => {
@@ -195,13 +196,15 @@ export const generatePDFReport = async (stats, predictions) => {
         doc.fontSize(10)
            .font('Helvetica')
            .fillColor('#555555')
-           .text(`Total Registered Donors: ${totalDonors}`, 50, doc.y);
+           .text(`Total Registered Donors: ${stats.stats?.totalDonors || 0}`, 50, doc.y);
 
         // Most common blood type
         const mostCommon = [...stats.bloodTypeDistribution].sort((a, b) => b._count - a._count)[0];
         if (mostCommon) {
           doc.text(`Most Common Blood Type: ${mostCommon.bloodType} (${mostCommon._count} donors)`, 50, doc.y + 20);
         }
+      } else {
+        doc.fontSize(12).fillColor('#666666').text('No blood type data available in the registry.', 50, 120);
       }
 
       // Footer
@@ -236,10 +239,10 @@ export const generatePDFReport = async (stats, predictions) => {
       doc.fontSize(10)
          .font('Helvetica')
          .fillColor('#333333')
-         .text(`Confidence Score: ${predictions?.data?.confidence || 75}%`, 65, boxY + 45)
-         .text(`Predicted Demand Increase: +${predictions?.data?.demandIncrease || 10}%`, 65, boxY + 70)
-         .text(`Predicted Blood Shortage: ${predictions?.data?.shortageBloodType || 'O+'}`, 65, boxY + 95)
-         .text(`Recommended Location: ${predictions?.data?.recommendedLocation || 'Addis Ababa'}`, 65, boxY + 120);
+         .text(`Confidence Score: ${predictions?.data?.confidence || 0}%`, 65, boxY + 45)
+         .text(`Predicted Demand Increase: +${predictions?.data?.demandIncrease || 0}%`, 65, boxY + 70)
+         .text(`Predicted Blood Shortage: ${predictions?.data?.shortageBloodType || 'N/A'}`, 65, boxY + 95)
+         .text(`Recommended Location: ${predictions?.data?.recommendedLocation || 'N/A'}`, 65, boxY + 120);
 
       doc.moveDown(10);
 
@@ -257,7 +260,7 @@ export const generatePDFReport = async (stats, predictions) => {
       doc.fontSize(10)
          .font('Helvetica')
          .fillColor('#333333')
-         .text(predictions?.data?.recommendation || 'Schedule regular donation drives to maintain supply levels.', 65, recY + 40);
+         .text(predictions?.data?.recommendation || 'Insufficient data to generate recommendation.', 65, recY + 40);
 
       // Footer
       doc.fontSize(8)
@@ -267,29 +270,25 @@ export const generatePDFReport = async (stats, predictions) => {
       doc.addPage();
 
       // ============================================================
-      // PAGE 5: TRENDS & CLOSING
+      // PAGE 5: RECENT ACTIVITY & SYSTEM HEALTH
       // ============================================================
 
       doc.fontSize(20)
          .font('Helvetica-Bold')
          .fillColor('#1B2559')
-         .text('6-Month Trend Analysis', 50, 50);
+         .text('Recent Activity (Last 6 Months)', 50, 50);
 
       doc.moveDown(1);
 
-      const months = ['January', 'February', 'March', 'April', 'May', 'June'];
-      const mockRequests = [65, 72, 88, 95, 110, 125];
-      const mockDonations = [58, 64, 75, 82, 98, 112];
-
-      // Trend data as text (since charts are complex)
+      // Real Trend data text
       doc.fontSize(10)
          .font('Helvetica-Bold')
          .fillColor('#333333')
-         .text('Monthly Donation Activity:', 50, 120);
+         .text('Requests by Category:', 50, 120);
 
       doc.moveDown(0.5);
 
-      // Table format for trends
+      // Table format for Real Trends
       const trendTop = 140;
 
       // Header
@@ -299,40 +298,58 @@ export const generatePDFReport = async (stats, predictions) => {
       doc.fillColor('#FFFFFF')
          .font('Helvetica-Bold')
          .fontSize(9)
-         .text('Month', 60, trendTop + 5)
-         .text('Donation Requests', 160, trendTop + 5)
-         .text('Completed Donations', 320, trendTop + 5);
+         .text('Donation Category', 60, trendTop + 5)
+         .text('Total Requests (6 Months)', 250, trendTop + 5);
 
       let trendY = trendTop + 20;
-      for (let i = 0; i < months.length; i++) {
-        const bgColor = i % 2 === 0 ? '#F9FAFB' : '#FFFFFF';
-        doc.fillColor(bgColor)
-           .rect(50, trendY, 500, 20)
-           .fill();
+      const trends = stats.monthlyTrends || [];
 
+      if (trends.length === 0) {
+        doc.fillColor('#F9FAFB').rect(50, trendY, 500, 20).fill();
         doc.fillColor('#333333')
            .font('Helvetica')
            .fontSize(9)
-           .text(months[i], 60, trendY + 5)
-           .text(mockRequests[i].toString(), 160, trendY + 5)
-           .text(mockDonations[i].toString(), 320, trendY + 5);
-
+           .text('No request data available for the last 6 months.', 60, trendY + 5);
         trendY += 20;
+      } else {
+        trends.forEach((item, i) => {
+          const bgColor = i % 2 === 0 ? '#F9FAFB' : '#FFFFFF';
+          doc.fillColor(bgColor)
+             .rect(50, trendY, 500, 20)
+             .fill();
+
+          doc.fillColor('#333333')
+             .font('Helvetica')
+             .fontSize(9)
+             .text(item.donationType || 'Unknown', 60, trendY + 5)
+             .text(item._count?.toString() || '0', 250, trendY + 5);
+
+          trendY += 20;
+        });
       }
 
       doc.moveDown(4);
 
-      // Growth calculation
-      const totalRequests = mockRequests.reduce((a, b) => a + b, 0);
-      const totalDonations = mockDonations.reduce((a, b) => a + b, 0);
-      const growthRate = ((totalRequests - totalDonations) / totalDonations * 100).toFixed(1);
+      // Real Growth/Gap calculation based on ACTUAL stats
+      const totalRequests = stats.stats?.activeRequests || 0;
+      const totalDonations = stats.stats?.completedMatches || 0;
+      let gapText = "System is currently balanced.";
+
+      if (totalDonations > 0) {
+        const gap = ((totalRequests - totalDonations) / totalDonations * 100).toFixed(1);
+        gapText = totalRequests > totalDonations
+          ? `Demand Gap: ${gap}% more active requests than completed donations.`
+          : `Supply Surplus: ${Math.abs(gap)}% more completed donations than active requests.`;
+      } else if (totalRequests > 0) {
+        gapText = "Demand Gap: 100% (Requests exist, but no completed donations yet).";
+      }
 
       doc.fontSize(10)
          .font('Helvetica')
          .fillColor('#555555')
-         .text(`Total Requests (6 months): ${totalRequests}`, 50, doc.y + 20)
+         .text(`Total Active Requests in System: ${totalRequests}`, 50, doc.y + 20)
          .text(`Total Completed Donations: ${totalDonations}`, 50, doc.y + 40)
-         .text(`Demand vs Supply Gap: ${growthRate}% more requests than donations`, 50, doc.y + 60);
+         .text(gapText, 50, doc.y + 60);
 
       // Closing message
       doc.moveDown(4);
@@ -348,7 +365,7 @@ export const generatePDFReport = async (stats, predictions) => {
 
       doc.end();
     } catch (error) {
-      console.error('PDF Generation Error:', error);
+      logger.error('PDF Generation Error: %O', error);
       reject(error);
     }
   });

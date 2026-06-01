@@ -1,6 +1,7 @@
 import Groq from 'groq-sdk';
 import prisma from '../../config/db.js';
 import { config } from '../../config/env.js';
+import logger from '../../utils/logger.js'; // <-- ADDED LOGGER IMPORT
 
 const groq = new Groq({
   apiKey: config.groqApiKey,
@@ -178,12 +179,12 @@ Return ONLY valid JSON in this exact format:
             createdBy: adminId, // This now references the User model
           },
         });
-        console.log('Prediction saved to database by admin:', adminId);
+        logger.info('Prediction saved to database by admin', { adminId }); // <-- REPLACED CONSOLE.LOG
       } catch (dbError) {
-        console.error('Failed to save prediction:', dbError.message);
+        logger.error('Failed to save prediction: %O', dbError); // <-- REPLACED CONSOLE.ERROR
       }
     } else {
-      console.log('No admin ID provided, prediction not saved to database');
+      logger.info('No admin ID provided, prediction not saved to database'); // <-- REPLACED CONSOLE.LOG
     }
 
     return {
@@ -192,7 +193,7 @@ Return ONLY valid JSON in this exact format:
       generatedAt: new Date().toISOString(),
     };
   } catch (error) {
-    console.error('AI Prediction Error:', error);
+    logger.error('AI Prediction Error: %O', error); // <-- REPLACED CONSOLE.ERROR
 
     // Fallback without AI
     const stats = await getRawStats();

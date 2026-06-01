@@ -88,3 +88,23 @@ export const protect = async (req, res, next) => {
     });
   }
 };
+//  OPTIONAL AUTH (Allows public visitors to use the chatbot) ──
+export const optionalAuth = async (req, res, next) => {
+  let token;
+  if (req.headers.authorization && req.headers.authorization.startsWith("Bearer")) {
+    token = req.headers.authorization.split(" ")[1];
+    try {
+      const decoded = jwt.verify(token, config.jwtSecret);
+      const user = await prisma.user.findUnique({
+        where: { id: decoded.userId },
+        select: { id: true, Role: true, status: true },
+      });
+      if (user && user.status === "Active") {
+        req.user = user;
+      }
+    } catch (error) {
+      logger.debug("Guest user detected in optionalAuth", { error: error.message });
+    }
+  }
+  next();
+};

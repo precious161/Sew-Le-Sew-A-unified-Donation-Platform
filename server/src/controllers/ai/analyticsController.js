@@ -1,10 +1,7 @@
 import { getRawStats, getAIPredictions, generateCSVReport } from '../../services/ai/analyticsService.js';
 import { generatePDFReport } from '../../services/ai/pdfReportService.js';
+import logger from '../../utils/logger.js';
 
-/**
- * Get real-time statistics (no AI)
- * GET /api/ai/analytics/stats
- */
 export const getStats = async (req, res) => {
   try {
     const stats = await getRawStats();
@@ -13,7 +10,7 @@ export const getStats = async (req, res) => {
       data: stats,
     });
   } catch (error) {
-    console.error('Get Stats Error:', error);
+    logger.error('Get Stats Error: %O', error);
     return res.status(500).json({
       success: false,
       message: 'Failed to fetch statistics',
@@ -21,10 +18,6 @@ export const getStats = async (req, res) => {
   }
 };
 
-/**
- * Get public statistics for landing page (limited data, no auth)
- * GET /api/ai/analytics/public-stats
- */
 export const getPublicStats = async (req, res) => {
   try {
     const stats = await getRawStats();
@@ -44,7 +37,7 @@ export const getPublicStats = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('Public Stats Error:', error);
+    logger.error('Public Stats Error: %O', error);
     return res.status(500).json({
       success: false,
       message: 'Failed to fetch public statistics',
@@ -52,17 +45,13 @@ export const getPublicStats = async (req, res) => {
   }
 };
 
-/**
- * Get AI-powered predictions
- * GET /api/ai/analytics/predictions
- */
 export const getPredictions = async (req, res) => {
   try {
-    const adminId = req.user?.id; // Get admin ID from token
+    const adminId = req.user?.id;
     const predictions = await getAIPredictions(adminId);
     return res.status(200).json(predictions);
   } catch (error) {
-    console.error('Get Predictions Error:', error);
+    logger.error('Get Predictions Error: %O', error);
     return res.status(500).json({
       success: false,
       message: 'Failed to generate predictions',
@@ -70,10 +59,6 @@ export const getPredictions = async (req, res) => {
   }
 };
 
-/**
- * Export analytics as CSV (Legacy)
- * GET /api/ai/analytics/export/csv
- */
 export const exportAnalytics = async (req, res) => {
   try {
     const csv = await generateCSVReport();
@@ -83,7 +68,7 @@ export const exportAnalytics = async (req, res) => {
 
     return res.status(200).send(csv);
   } catch (error) {
-    console.error('Export Error:', error);
+    logger.error('CSV Export Error: %O', error);
     return res.status(500).json({
       success: false,
       message: 'Failed to export report',
@@ -91,10 +76,6 @@ export const exportAnalytics = async (req, res) => {
   }
 };
 
-/**
- * Export analytics as PDF
- * GET /api/ai/analytics/export/pdf
- */
 export const exportPDFReport = async (req, res) => {
   try {
     const stats = await getRawStats();
@@ -107,7 +88,7 @@ export const exportPDFReport = async (req, res) => {
 
     return res.status(200).send(pdfBuffer);
   } catch (error) {
-    console.error('PDF Export Error:', error);
+    logger.error('PDF Export Error: %O', error);
     return res.status(500).json({
       success: false,
       message: 'Failed to generate PDF report',

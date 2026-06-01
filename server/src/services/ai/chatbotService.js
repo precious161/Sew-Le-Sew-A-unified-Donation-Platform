@@ -1,14 +1,12 @@
 import Groq from 'groq-sdk';
 import { config } from '../../config/env.js';
 import prisma from '../../config/db.js';
+import logger from '../../utils/logger.js';
 
 const groq = new Groq({
   apiKey: config.groqApiKey,
 });
 
-// ─────────────────────────────────────────
-// COMPLETE SYSTEM KNOWLEDGE BASE
-// ─────────────────────────────────────────
 const SYSTEM_KNOWLEDGE = `
 You are Sew Le Sew Assistant, an AI chatbot for the Ethiopian Red Cross donation platform.
 
@@ -94,9 +92,6 @@ IMPORTANT RULES:
 - Only verified users can donate or request
 `;
 
-// ─────────────────────────────────────────
-// FETCH REAL-TIME SYSTEM DATA
-// ─────────────────────────────────────────
 const fetchSystemStats = async () => {
   try {
     const [
@@ -119,7 +114,6 @@ const fetchSystemStats = async () => {
       }),
     ]);
 
-    // Get most needed blood type
     const bloodTypeDemand = await prisma.donationRequest.groupBy({
       by: ['requiredBloodType'],
       where: { donationType: 'Blood', requiredBloodType: { not: null } },
@@ -137,14 +131,11 @@ const fetchSystemStats = async () => {
       mostNeededBlood: bloodTypeDemand[0]?.requiredBloodType || 'O+',
     };
   } catch (error) {
-    console.error('Failed to fetch stats for chatbot:', error);
+    logger.error('Failed to fetch stats for chatbot: %O', error);
     return null;
   }
 };
 
-// ─────────────────────────────────────────
-// CHECK USER STATUS (if logged in)
-// ─────────────────────────────────────────
 const getUserContext = async (userId) => {
   if (!userId || userId === 'guest') {
     return {
@@ -165,7 +156,6 @@ const getUserContext = async (userId) => {
       return { isLoggedIn: false, role: null, isVerified: false, hasHealthInfo: false };
     }
 
-    // Check if user has active intents/requests
     const activeIntents = await prisma.donationIntent.count({
       where: { userId, status: 'Active' },
     });
@@ -184,14 +174,11 @@ const getUserContext = async (userId) => {
       firstName: user.FirstName,
     };
   } catch (error) {
-    console.error('Failed to fetch user context:', error);
+    logger.error('Failed to fetch user context: %O', error);
     return { isLoggedIn: false, role: null, isVerified: false, hasHealthInfo: false };
   }
 };
 
-// ─────────────────────────────────────────
-// GENERATE ACTIONABLE SUGGESTIONS
-// ─────────────────────────────────────────
 const generateActionSuggestions = (userContext, stats) => {
   const suggestions = [];
 
@@ -251,22 +238,16 @@ const generateActionSuggestions = (userContext, stats) => {
   return suggestions;
 };
 
-// ─────────────────────────────────────────
-// MAIN CHAT FUNCTION
-// ─────────────────────────────────────────
 export const sendChatMessage = async (message, userId = null) => {
   try {
-    console.log(`💬 sendChatMessage called with userId: ${userId}`);
+    logger.info(`sendChatMessage called with userId: ${userId}`);
 
-    // Fetch real-time data
     const stats = await fetchSystemStats();
     const userContext = await getUserContext(userId);
     const suggestions = generateActionSuggestions(userContext, stats);
 
-    // Build context-aware prompt
     let systemPrompt = SYSTEM_KNOWLEDGE;
 
-    // Add real-time stats
     if (stats) {
       systemPrompt += `\n\nREAL-TIME SYSTEM DATA (as of now):
 - Active Donors: ${stats.totalDonors}
@@ -279,7 +260,6 @@ export const sendChatMessage = async (message, userId = null) => {
 Use this data when users ask about current demand, shortages, or system status.`;
     }
 
-    // Add user context if logged in
     if (userContext.isLoggedIn) {
       systemPrompt += `\n\nCURRENT USER CONTEXT:
 - User Name: ${userContext.firstName}
@@ -317,10 +297,6 @@ Remember: You are representing the Ethiopian Red Cross. Be professional but warm
 
     const reply = completion.choices[0]?.message?.content || 'I apologize, I could not generate a response. Please try again.';
 
-    // ─────────────────────────────────────────
-    // SAVE CHAT INTERACTION - FIXED
-    // Only save if userId is a valid UUID (not 'guest')
-    // ─────────────────────────────────────────
     const isValidUserId = userId && userId !== 'guest' && userId.length > 10;
 
     if (isValidUserId) {
@@ -334,13 +310,12 @@ Remember: You are representing the Ethiopian Red Cross. Be professional but warm
             status: 'Answered',
           },
         });
-        console.log(`✅ Chat saved successfully! ID: ${savedChat.id} for user: ${userId}`);
+        logger.info(`Chat saved successfully! ID: ${savedChat.id} for user: ${userId}`);
       } catch (dbError) {
-        console.error('❌ Database error saving chat:', dbError.message);
-        console.error('Error details:', dbError);
+        logger.error('Database error saving chat: %O', dbError);
       }
     } else {
-      console.log(`⚠️ Chat not saved - invalid userId: ${userId} (must be logged in to save history)`);
+      logger.info(`Chat not saved - guest user`);
     }
 
     return {
@@ -349,7 +324,7 @@ Remember: You are representing the Ethiopian Red Cross. Be professional but warm
       suggestions: suggestions.slice(0, 3),
     };
   } catch (error) {
-    console.error('Groq Chatbot Error:', error);
+    logger.error('Groq Chatbot Error: %O', error);
     return {
       success: false,
       reply: 'I am having trouble connecting right now. Please try again later or contact the Red Cross directly at +251-11-551-00-11.',
@@ -358,12 +333,9 @@ Remember: You are representing the Ethiopian Red Cross. Be professional but warm
   }
 };
 
-// ─────────────────────────────────────────
-// GET CHAT HISTORY FOR USER - FIXED with better logging
-// ─────────────────────────────────────────
 export const getUserChatHistory = async (userId) => {
   try {
-    console.log(`📜 Fetching chat history for userId: ${userId}`);
+    logger.info(`Fetching chat history for userId: ${userId}`);
 
     const history = await prisma.chatInteraction.findMany({
       where: { userId },
@@ -377,17 +349,14 @@ export const getUserChatHistory = async (userId) => {
       },
     });
 
-    console.log(`📜 Found ${history.length} chat history items for user ${userId}`);
+    logger.info(`Found ${history.length} chat history items for user ${userId}`);
     return history;
   } catch (error) {
-    console.error('Failed to fetch chat history:', error.message);
+    logger.error('Failed to fetch chat history: %O', error);
     return [];
   }
 };
 
-// ─────────────────────────────────────────
-// DELETE SINGLE CONVERSATION
-// ─────────────────────────────────────────
 export const deleteChatInteraction = async (userId, chatId) => {
   try {
     const result = await prisma.chatInteraction.deleteMany({
@@ -398,14 +367,11 @@ export const deleteChatInteraction = async (userId, chatId) => {
     });
     return result.count > 0;
   } catch (error) {
-    console.error('Failed to delete chat:', error.message);
+    logger.error('Failed to delete chat: %O', error);
     return false;
   }
 };
 
-// ─────────────────────────────────────────
-// DELETE ALL USER CONVERSATIONS
-// ─────────────────────────────────────────
 export const deleteAllUserChats = async (userId) => {
   try {
     const result = await prisma.chatInteraction.deleteMany({
@@ -413,7 +379,7 @@ export const deleteAllUserChats = async (userId) => {
     });
     return result.count;
   } catch (error) {
-    console.error('Failed to delete all chats:', error.message);
+    logger.error('Failed to delete all chats: %O', error);
     return 0;
   }
 };
