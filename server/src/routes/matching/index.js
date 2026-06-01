@@ -5,17 +5,15 @@ import financialRoutes from "./financialRoutes.js";
 import organMatchingRoutes from "./organMatchingRoutes.js";
 import { protect } from '../../middleware/authMiddleware.js';
 import prisma from '../../config/db.js';
+import { matchingEngineLimiter } from '../../middleware/rateLimiter.js';
 
 const router = Router();
 
-// ─────────────────────────────────────────
-// NEW: Unified Handshake Route 
-// This allows the Donor to see the "Accept/Decline" card
-// ─────────────────────────────────────────
+
 router.get('/my-active-match', protect, async (req, res) => {
   try {
     const userId = req.user.id;
-    
+
     const activeMatch = await prisma.match.findFirst({
       where: {
         OR: [
@@ -54,6 +52,12 @@ router.get('/my-active-match', protect, async (req, res) => {
     res.status(500).json({ success: false, message: 'Registry fetch error' });
   }
 });
+
+// Apply rate limiting to matching engine routes
+router.use("/blood", matchingEngineLimiter);
+router.use("/inkind", matchingEngineLimiter);
+router.use("/financial", matchingEngineLimiter);
+router.use("/organ", matchingEngineLimiter);
 
 router.use("/blood", bloodMatchingRoutes);
 router.use("/inkind", inKindMatchingRoutes);

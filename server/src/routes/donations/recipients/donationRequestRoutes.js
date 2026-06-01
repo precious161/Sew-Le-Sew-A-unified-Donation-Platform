@@ -5,6 +5,7 @@ import { authorize } from "../../../middleware/users/roleMiddleware.js";
 import { validateRequest } from "../../../middleware/donations/validateRequest.js";
 import { donationRequestSchema } from "../../../validations/donations/recipients/donationRequestSchema.js";
 import { upload } from "../../../config/cloudinary.js";
+import { validateFileUpload } from "../../../middleware/fileValidation.js";
 
 const router = Router();
 
@@ -14,6 +15,7 @@ router.post(
   protect,
   authorize("Recipient"),
   upload.single("document"),
+  validateFileUpload("medical_document"), // NEW: Enhanced validation
   validateRequest(donationRequestSchema),
   DonationRequestController.requestDonation
 );

@@ -1,19 +1,20 @@
 import prisma from "../../config/db.js";
+import logger from "../../utils/logger.js";
 
 const BLOOD_COMPATIBILITY = {
-  "O-":  ["O-", "O+", "A-", "A+", "B-", "B+", "AB-", "AB+"],
-  "O+":  ["O+", "A+", "B+", "AB+"],
-  "A-":  ["A-", "A+", "AB-", "AB+"],
-  "A+":  ["A+", "AB+"],
-  "B-":  ["B-", "B+", "AB-", "AB+"],
-  "B+":  ["B+", "AB+"],
+  "O-": ["O-", "O+", "A-", "A+", "B-", "B+", "AB-", "AB+"],
+  "O+": ["O+", "A+", "B+", "AB+"],
+  "A-": ["A-", "A+", "AB-", "AB+"],
+  "A+": ["A+", "AB+"],
+  "B-": ["B-", "B+", "AB-", "AB+"],
+  "B+": ["B+", "AB+"],
   "AB-": ["AB-", "AB+"],
   "AB+": ["AB+"],
 };
 
 export const runBloodMatching = async () => {
   try {
-    console.log('🔄 Running Blood Matching Engine...');
+    logger.info('🔄 Running Blood Matching Engine...');
 
     const pendingRequests = await prisma.donationRequest.findMany({
       where: { donationType: "Blood", status: "Pending", requiredBloodType: { not: null } },
@@ -21,7 +22,7 @@ export const runBloodMatching = async () => {
     });
 
     if (pendingRequests.length === 0) {
-      console.log('No pending blood requests found');
+      logger.info('No pending blood requests found');
       return;
     }
 
@@ -31,7 +32,7 @@ export const runBloodMatching = async () => {
     });
 
     if (activeIntents.length === 0) {
-      console.log('No active blood donors found');
+      logger.info('No active blood donors found');
       return;
     }
 
@@ -71,20 +72,23 @@ export const runBloodMatching = async () => {
       usedIntentIds.add(bestIntent.id);
     }
 
-    console.log(`✅ Blood matching completed! Created ${matchCount} matches.`);
+    logger.info(`✅ Blood matching completed! Created ${matchCount} matches.`);
   } catch (error) {
-    console.error("runBloodMatching Error:", error);
+    logger.error("runBloodMatching Error:", error);
     throw error;
   }
 };
 
 export const handleDonorResponse = async (matchId, donorId, accepted) => {
+  logger.info(`🔄 Donor ${donorId} responding to blood match ${matchId}: ${accepted ? 'ACCEPTED' : 'DECLINED'}`);
+
   const match = await prisma.match.findUnique({
     where: { id: matchId },
     include: { intent: true, request: true }
   });
 
   if (!match || match.intent.userId !== donorId) {
+    logger.warn(`Unauthorized blood match response attempt`, { matchId, donorId });
     throw new Error("Match not found or unauthorized.");
   }
 
@@ -101,6 +105,7 @@ export const handleDonorResponse = async (matchId, donorId, accepted) => {
         data: { userId: donorId, message: `✅ Thank you for confirming! Please visit the Red Cross Center at ${match.intent.location}.` }
       });
     });
+    logger.info(`✅ Blood match accepted`, { matchId, donorId });
   } else {
     await prisma.$transaction(async (tx) => {
       await tx.match.update({
@@ -116,22 +121,25 @@ export const handleDonorResponse = async (matchId, donorId, accepted) => {
         data: { status: "Pending" }
       });
     });
+    logger.info(`❌ Blood match declined`, { matchId, donorId });
     await runBloodMatching();
   }
 };
 
 export const confirmDonationCompletion = async (matchId, adminId) => {
-  console.log(`✅ Admin ${adminId} confirming completion of match ${matchId}`);
+  logger.info(`✅ Admin ${adminId} confirming completion of blood match ${matchId}`);
 
   const match = await prisma.match.findUnique({
     where: { id: matchId },
     include: { intent: true, request: true }
   });
 
-  if (!match) throw new Error("Match not found.");
+  if (!match) {
+    logger.error(`Blood match not found: ${matchId}`);
+    throw new Error("Match not found.");
+  }
 
   await prisma.$transaction(async (tx) => {
-    // 1. Update existing records
     await tx.match.update({
       where: { id: matchId },
       data: { status: "Completed", completedAt: new Date(), confirmedBy: adminId }
@@ -145,7 +153,6 @@ export const confirmDonationCompletion = async (matchId, adminId) => {
       data: { status: "Fulfilled" }
     });
 
-    // 2. Set Donor Cooldown
     await tx.userEligibilityStatus.upsert({
       where: {
         userId_category: {
@@ -165,7 +172,6 @@ export const confirmDonationCompletion = async (matchId, adminId) => {
       }
     });
 
-    // 3. CREATE DONATION HISTORY - This is what populates the Donation History page
     await tx.donationHistory.create({
       data: {
         donorId: match.intent.userId,
@@ -179,7 +185,6 @@ export const confirmDonationCompletion = async (matchId, adminId) => {
       }
     });
 
-    // 4. Notifications
     await tx.notification.create({
       data: {
         userId: match.intent.userId,
@@ -194,7 +199,7 @@ export const confirmDonationCompletion = async (matchId, adminId) => {
     });
   });
 
-  console.log(`✅ Blood donation ${matchId} completed and added to history`);
+  logger.info(`✅ Blood donation ${matchId} completed and added to history`);
 };
 
 export const getAllBloodMatches = async (page = 1, limit = 20) => {

@@ -1,8 +1,8 @@
-// authMiddleware.js
 import jwt from "jsonwebtoken";
 import { StatusCodes } from "http-status-codes";
 import { config } from "../config/env.js";
 import prisma from "../config/db.js";
+import logger from "../utils/logger.js";
 
 export const protect = async (req, res, next) => {
   let token;
@@ -20,6 +20,7 @@ export const protect = async (req, res, next) => {
 
       if (isBlacklisted) {
         return res.status(StatusCodes.UNAUTHORIZED).json({
+          success: false,
           message: "Session expired. Please log in again.",
         });
       }
@@ -30,6 +31,9 @@ export const protect = async (req, res, next) => {
         where: { id: decoded.userId },
         select: {
           id: true,
+          FirstName: true,
+          LastName: true,
+          EmailAddress: true,
           Role: true,
           status: true,
           identityStatus: true,
@@ -37,14 +41,17 @@ export const protect = async (req, res, next) => {
       });
 
       if (!user) {
+        logger.warn(`Token belongs to non-existent user`, { userId: decoded.userId });
         return res.status(StatusCodes.UNAUTHORIZED).json({
+          success: false,
           message: "The user belonging to this token no longer exists.",
         });
       }
 
-      // Double check account is still active on every request
       if (user.status !== "Active") {
+        logger.warn(`Inactive user attempted access`, { userId: user.id, email: user.EmailAddress });
         return res.status(StatusCodes.FORBIDDEN).json({
+          success: false,
           message: "Your account has been deactivated. Please contact support.",
         });
       }
@@ -52,7 +59,23 @@ export const protect = async (req, res, next) => {
       req.user = user;
       return next();
     } catch (error) {
+      if (error.name === "TokenExpiredError") {
+        return res.status(StatusCodes.UNAUTHORIZED).json({
+          success: false,
+          message: "Session expired. Please log in again.",
+        });
+      }
+
+      if (error.name === "JsonWebTokenError") {
+        return res.status(StatusCodes.UNAUTHORIZED).json({
+          success: false,
+          message: "Invalid token. Please log in again.",
+        });
+      }
+
+      logger.error("Auth middleware error:", error.message);
       return res.status(StatusCodes.UNAUTHORIZED).json({
+        success: false,
         message: "Not authorized, token failed",
       });
     }
@@ -60,7 +83,28 @@ export const protect = async (req, res, next) => {
 
   if (!token) {
     return res.status(StatusCodes.UNAUTHORIZED).json({
-      message: "Not authorized, no token",
+      success: false,
+      message: "Not authorized, no token provided",
     });
   }
+};
+//  OPTIONAL AUTH (Allows public visitors to use the chatbot) ──
+export const optionalAuth = async (req, res, next) => {
+  let token;
+  if (req.headers.authorization && req.headers.authorization.startsWith("Bearer")) {
+    token = req.headers.authorization.split(" ")[1];
+    try {
+      const decoded = jwt.verify(token, config.jwtSecret);
+      const user = await prisma.user.findUnique({
+        where: { id: decoded.userId },
+        select: { id: true, Role: true, status: true },
+      });
+      if (user && user.status === "Active") {
+        req.user = user;
+      }
+    } catch (error) {
+      logger.debug("Guest user detected in optionalAuth", { error: error.message });
+    }
+  }
+  next();
 };

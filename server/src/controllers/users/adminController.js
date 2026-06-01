@@ -1,6 +1,7 @@
 import { StatusCodes } from "http-status-codes";
 import prisma from "../../config/db.js";
 import * as AuditService from "../../services/security/auditService.js";
+import logger from "../../utils/logger.js";
 
 export const monitorActivity = async (req, res) => {
   try {
@@ -12,15 +13,26 @@ export const monitorActivity = async (req, res) => {
       prisma.user.findMany({
         skip,
         take: limit,
-        select: { id: true, FirstName: true, LastName: true, EmailAddress: true, Role: true, status: true, identityStatus: true },
+        select: { id: true, FirstName: true, LastName: true, EmailAddress: true, Role: true, status: true, identityStatus: true, createdAt: true },
         orderBy: { createdAt: "desc" },
       }),
       prisma.user.count(),
     ]);
 
-    return res.status(StatusCodes.OK).json({ success: true, count: users.length, totalCount, totalPages: Math.ceil(totalCount / limit), currentPage: page, data: users });
+    return res.status(StatusCodes.OK).json({
+      success: true,
+      count: users.length,
+      totalCount,
+      totalPages: Math.ceil(totalCount / limit),
+      currentPage: page,
+      data: users
+    });
   } catch (error) {
-    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ success: false, message: "Error monitoring users" });
+    logger.error("monitorActivity Error:", error);
+    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+      success: false,
+      message: "Error monitoring users"
+    });
   }
 };
 
@@ -30,19 +42,39 @@ export const deactivateUser = async (req, res) => {
     const { status } = req.body;
 
     const validStatuses = ["Active", "Deactivated"];
-    if (!validStatuses.includes(status)) return res.status(StatusCodes.BAD_REQUEST).json({ success: false, message: "Invalid status value" });
+    if (!validStatuses.includes(status)) {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        success: false,
+        message: "Invalid status value"
+      });
+    }
 
     const updatedUser = await prisma.user.update({
       where: { id },
       data: { status },
-      select: { id: true, FirstName: true, LastName: true, status: true },
+      select: { id: true, FirstName: true, LastName: true, status: true, EmailAddress: true },
     });
 
     await AuditService.createLogEntry(req.user.id, `Changed User Status to ${status}`, "User", `User ID: ${id}`);
 
-    return res.status(StatusCodes.OK).json({ success: true, message: `User status updated to ${status}`, data: updatedUser });
+    logger.info(`User status updated`, {
+      adminId: req.user.id,
+      userId: id,
+      newStatus: status,
+      userEmail: updatedUser.EmailAddress
+    });
+
+    return res.status(StatusCodes.OK).json({
+      success: true,
+      message: `User status updated to ${status}`,
+      data: updatedUser
+    });
   } catch (error) {
-    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ success: false, message: "Action failed" });
+    logger.error("deactivateUser Error:", error);
+    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+      success: false,
+      message: "Action failed"
+    });
   }
 };
 
@@ -52,19 +84,39 @@ export const assignRole = async (req, res) => {
     const { Role } = req.body;
 
     const validRoles = ["Red_Cross_Admin", "Donor", "Recipient"];
-    if (!validRoles.includes(Role)) return res.status(StatusCodes.BAD_REQUEST).json({ success: false, message: "Invalid role value" });
+    if (!validRoles.includes(Role)) {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        success: false,
+        message: "Invalid role value"
+      });
+    }
 
     const updatedUser = await prisma.user.update({
       where: { id },
       data: { Role },
-      select: { id: true, Role: true },
+      select: { id: true, Role: true, EmailAddress: true },
     });
 
     await AuditService.createLogEntry(req.user.id, `Changed User Role to ${Role}`, "User", `User ID: ${id}`);
 
-    return res.status(StatusCodes.OK).json({ success: true, message: `User role updated to ${Role}`, data: updatedUser });
+    logger.info(`User role updated`, {
+      adminId: req.user.id,
+      userId: id,
+      newRole: Role,
+      userEmail: updatedUser.EmailAddress
+    });
+
+    return res.status(StatusCodes.OK).json({
+      success: true,
+      message: `User role updated to ${Role}`,
+      data: updatedUser
+    });
   } catch (error) {
-    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ success: false, message: "Role assignment failed" });
+    logger.error("assignRole Error:", error);
+    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+      success: false,
+      message: "Role assignment failed"
+    });
   }
 };
 
@@ -75,9 +127,20 @@ export const getPendingIdentities = async (req, res) => {
       select: { id: true, FirstName: true, LastName: true, EmailAddress: true, Role: true, identityDocumentUrl: true, createdAt: true },
       orderBy: { createdAt: "asc" },
     });
-    return res.status(StatusCodes.OK).json({ success: true, count: pendingUsers.length, data: pendingUsers });
+
+    logger.info(`Pending identities fetched`, { count: pendingUsers.length });
+
+    return res.status(StatusCodes.OK).json({
+      success: true,
+      count: pendingUsers.length,
+      data: pendingUsers
+    });
   } catch (error) {
-    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ success: false, message: "Error fetching pending identities." });
+    logger.error("getPendingIdentities Error:", error);
+    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+      success: false,
+      message: "Error fetching pending identities."
+    });
   }
 };
 
@@ -87,26 +150,64 @@ export const reviewIdentity = async (req, res) => {
     const { id: userIdToVerify } = req.params;
     const { approved, rejectionReason } = req.body;
 
-    if (typeof approved !== "boolean") return res.status(StatusCodes.BAD_REQUEST).json({ success: false, message: "Field 'approved' must be a boolean." });
-    if (!approved && !rejectionReason) return res.status(StatusCodes.BAD_REQUEST).json({ success: false, message: "Rejection reason is required." });
+    if (typeof approved !== "boolean") {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        success: false,
+        message: "Field 'approved' must be a boolean."
+      });
+    }
+    if (!approved && !rejectionReason) {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        success: false,
+        message: "Rejection reason is required."
+      });
+    }
 
     const newStatus = approved ? "Verified" : "Rejected";
 
     await prisma.$transaction(async (tx) => {
       await tx.user.update({
         where: { id: userIdToVerify },
-        data: { identityStatus: newStatus, identityVerifiedBy: adminId, identityVerifiedAt: new Date(), identityRejectionReason: approved ? null : rejectionReason },
+        data: {
+          identityStatus: newStatus,
+          identityVerifiedBy: adminId,
+          identityVerifiedAt: new Date(),
+          identityRejectionReason: approved ? null : rejectionReason
+        },
       });
       await tx.notification.create({
-        data: { userId: userIdToVerify, message: approved ? "Your identity verification has been approved!" : `Your identity verification was rejected. Reason: ${rejectionReason}.` },
+        data: {
+          userId: userIdToVerify,
+          message: approved
+            ? "Your identity verification has been approved!"
+            : `Your identity verification was rejected. Reason: ${rejectionReason}.`
+        },
       });
     });
 
-    await AuditService.createLogEntry(adminId, approved ? "Approved User Identity" : "Rejected User Identity", "User", approved ? "Verified National ID" : rejectionReason);
+    await AuditService.createLogEntry(
+      adminId,
+      approved ? "Approved User Identity" : "Rejected User Identity",
+      "User",
+      approved ? "Verified National ID" : rejectionReason
+    );
 
-    return res.status(StatusCodes.OK).json({ success: true, message: `User identity status updated to ${newStatus}.` });
+    logger.info(`Identity ${approved ? 'approved' : 'rejected'}`, {
+      adminId,
+      userId: userIdToVerify,
+      newStatus
+    });
+
+    return res.status(StatusCodes.OK).json({
+      success: true,
+      message: `User identity status updated to ${newStatus}.`
+    });
   } catch (error) {
-    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ success: false, message: "Verification review failed." });
+    logger.error("reviewIdentity Error:", error);
+    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+      success: false,
+      message: "Verification review failed."
+    });
   }
 };
 
@@ -119,7 +220,6 @@ export const safeRoleChange = async (req, res) => {
     const { userId } = req.params;
     const { newRole, reason } = req.body;
 
-    // Validate new role
     const validRoles = ["Donor", "Recipient"];
     if (!validRoles.includes(newRole)) {
       return res.status(StatusCodes.BAD_REQUEST).json({
@@ -128,7 +228,6 @@ export const safeRoleChange = async (req, res) => {
       });
     }
 
-    // Get user with all active data (FIXED: removed direct matches include)
     const user = await prisma.user.findUnique({
       where: { id: userId },
       include: {
@@ -144,7 +243,6 @@ export const safeRoleChange = async (req, res) => {
       });
     }
 
-    // Check if already has the target role
     if (user.Role === newRole) {
       return res.status(StatusCodes.BAD_REQUEST).json({
         success: false,
@@ -152,7 +250,6 @@ export const safeRoleChange = async (req, res) => {
       });
     }
 
-    // Prevent changing admin roles via this endpoint
     if (user.Role === "Red_Cross_Admin" || newRole === "Red_Cross_Admin") {
       return res.status(StatusCodes.FORBIDDEN).json({
         success: false,
@@ -160,7 +257,6 @@ export const safeRoleChange = async (req, res) => {
       });
     }
 
-    // Get active matches separately
     const activeMatchesAsDonor = await prisma.match.findMany({
       where: {
         intent: { userId: userId },
@@ -176,11 +272,9 @@ export const safeRoleChange = async (req, res) => {
     });
 
     const activeMatches = [...activeMatchesAsDonor, ...activeMatchesAsRecipient];
-
     const changes = [];
     const warnings = [];
 
-    // 1. Check for active Donor Intents (if becoming Recipient)
     if (user.Role === "Donor" && newRole === "Recipient") {
       const activeIntents = user.donationIntents.filter(
         i => ["Active", "PendingVerification", "Matched"].includes(i.status)
@@ -192,7 +286,6 @@ export const safeRoleChange = async (req, res) => {
       }
     }
 
-    // 2. Check for active Recipient Requests (if becoming Donor)
     if (user.Role === "Recipient" && newRole === "Donor") {
       const activeRequests = user.requests.filter(
         r => ["PendingVerification", "Pending", "Matching"].includes(r.status)
@@ -204,14 +297,12 @@ export const safeRoleChange = async (req, res) => {
       }
     }
 
-    // 3. Check for active matches
     if (activeMatches.length > 0) {
       warnings.push(`Found ${activeMatches.length} active match(es) that will be cancelled`);
       changes.push(`Cancelled ${activeMatches.length} active matches`);
     }
 
     await prisma.$transaction(async (tx) => {
-      // 1. Cancel all active donor intents
       if (user.Role === "Donor" && newRole === "Recipient") {
         await tx.donationIntent.updateMany({
           where: {
@@ -225,7 +316,6 @@ export const safeRoleChange = async (req, res) => {
         });
       }
 
-      // 2. Cancel all active recipient requests
       if (user.Role === "Recipient" && newRole === "Donor") {
         await tx.donationRequest.updateMany({
           where: {
@@ -239,7 +329,6 @@ export const safeRoleChange = async (req, res) => {
         });
       }
 
-      // 3. Cancel all active matches
       if (activeMatches.length > 0) {
         await tx.match.updateMany({
           where: {
@@ -256,35 +345,21 @@ export const safeRoleChange = async (req, res) => {
         });
       }
 
-      // 4. Reset eligibility status
       await tx.userEligibilityStatus.deleteMany({
         where: { userId: userId },
       });
 
-      // 5. Update user role
-      const updatedUser = await tx.user.update({
+      await tx.user.update({
         where: { id: userId },
         data: { Role: newRole },
-        select: {
-          id: true,
-          FirstName: true,
-          LastName: true,
-          EmailAddress: true,
-          Role: true,
-          status: true,
-          identityStatus: true,
-        },
       });
 
-      // 6. Create notification
       await tx.notification.create({
         data: {
           userId: userId,
           message: `🔔 Your account role has been changed from ${user.Role} to ${newRole}. ${warnings.length > 0 ? "Your active donations/requests have been cancelled." : ""} Reason: ${reason || "Admin action"}. Please log out and log back in to see changes.`,
         },
       });
-
-      return updatedUser;
     });
 
     await AuditService.createLogEntry(
@@ -294,6 +369,14 @@ export const safeRoleChange = async (req, res) => {
       `User ID: ${userId}. Changes: ${changes.join(", ")}. Warnings: ${warnings.join(", ")}. Reason: ${reason || "Not specified"}`
     );
 
+    logger.info(`Admin changed user role`, {
+      adminId,
+      userId,
+      fromRole: user.Role,
+      toRole: newRole,
+      userEmail: user.EmailAddress
+    });
+
     return res.status(StatusCodes.OK).json({
       success: true,
       message: `User role changed from ${user.Role} to ${newRole}`,
@@ -302,9 +385,8 @@ export const safeRoleChange = async (req, res) => {
         changes: changes,
       },
     });
-
   } catch (error) {
-    console.error("Safe Role Change Error:", error);
+    logger.error("Safe Role Change Error:", error);
     return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
       success: false,
       message: "Failed to change user role",

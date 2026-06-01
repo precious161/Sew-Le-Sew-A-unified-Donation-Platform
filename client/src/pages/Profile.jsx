@@ -5,10 +5,12 @@ import ProfileService from '../services/ProfileService';
 import AuthService from '../services/AuthService';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../context/ThemeContext';
+import NotificationHub from '../components/notifications/NotificationHub';
 import {
   Save, ArrowLeft, Phone, Mail, Sun, Moon, Lock,
   ShieldCheck, FileText, AlertTriangle, Droplets, UserCog, ExternalLink,
-  RefreshCw, CheckCircle, XCircle, BellRing
+  RefreshCw, CheckCircle, XCircle, BellRing, Menu, X, Shield,
+  Users, Activity, Calendar as CalendarIcon, Award, TrendingUp
 } from 'lucide-react';
 
 const Profile = () => {
@@ -21,8 +23,9 @@ const Profile = () => {
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [systemStats, setSystemStats] = useState(null);
 
-  // Role change modal state
   const [roleChangeModal, setRoleChangeModal] = useState({
     isOpen: false,
     requestedRole: '',
@@ -67,8 +70,23 @@ const Profile = () => {
     }
   };
 
+  const fetchSystemStats = async () => {
+    if (!isAdmin) return;
+    try {
+      // Fetch stats from your admin service
+      const response = await fetch('/api/admin/stats');
+      const data = await response.json();
+      if (data.success) {
+        setSystemStats(data.data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch stats:", error);
+    }
+  };
+
   useEffect(() => {
     fetchProfile();
+    fetchSystemStats();
   }, []);
 
   useEffect(() => {
@@ -77,6 +95,16 @@ const Profile = () => {
       return () => clearTimeout(timer);
     }
   }, [message]);
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 768) {
+        setIsMobileSidebarOpen(false);
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const handleUpdate = async (e) => {
     e.preventDefault();
@@ -122,7 +150,6 @@ const Profile = () => {
     }
   };
 
-  // Handle direct role change with toast notifications
   const handleDirectRoleChange = async () => {
     setRoleChangeModal(prev => ({ ...prev, loading: true }));
     try {
@@ -136,7 +163,6 @@ const Profile = () => {
 
         showToast(`✅ Role changed from ${user.Role} to ${newRole} successfully! Please log in again.`, 'success');
 
-        // Delay logout to show toast
         setTimeout(async () => {
           await AuthService.logout();
           navigate('/login');
@@ -172,30 +198,64 @@ const Profile = () => {
   );
 
   return (
-    <div className={`flex min-h-screen transition-colors duration-500 relative overflow-hidden ${isDarkMode ? 'bg-[#0b1121]' : 'bg-gray-50'}`}>
-      <Sidebar isDarkMode={isDarkMode} />
+    <div className={`flex min-h-screen transition-all duration-500 ${isDarkMode ? 'bg-[#0f172a]' : 'bg-[#F8F9FA]'}`}>
+      {/* Desktop Sidebar */}
+      <div className="hidden md:block">
+        <Sidebar isDarkMode={isDarkMode} />
+      </div>
 
-      {/* TOAST NOTIFICATION */}
+      {/* Mobile Sidebar Overlay */}
+      <Sidebar isDarkMode={isDarkMode} isMobileOpen={isMobileSidebarOpen} onClose={() => setIsMobileSidebarOpen(false)} />
+
+      {/* Toast Notification */}
       {toast.show && (
-        <div className="fixed top-10 left-1/2 -translate-x-1/2 z-[200] animate-in slide-in-from-top-full duration-300">
-          <div className={`px-8 py-4 rounded-3xl shadow-2xl flex items-center gap-4 ${
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[200] animate-in slide-in-from-top-full duration-300">
+          <div className={`px-6 md:px-8 py-3 md:py-4 rounded-3xl shadow-2xl flex items-center gap-3 md:gap-4 ${
             toast.type === 'success' ? 'bg-green-500 text-white' :
             toast.type === 'warning' ? 'bg-yellow-500 text-black' :
             'bg-medical-red text-white'
           }`}>
-            {toast.type === 'success' ? <CheckCircle size={20} className="animate-bounce" /> :
-             toast.type === 'warning' ? <AlertTriangle size={20} className="animate-bounce" /> :
-             <BellRing size={20} className="animate-bounce" />}
-            <p className="text-xs font-black uppercase tracking-widest">{toast.message}</p>
+            {toast.type === 'success' ? <CheckCircle size={16} className="md:size-[20px] animate-bounce" /> :
+             toast.type === 'warning' ? <AlertTriangle size={16} className="md:size-[20px] animate-bounce" /> :
+             <BellRing size={16} className="md:size-[20px] animate-bounce" />}
+            <p className="text-[10px] md:text-xs font-black uppercase tracking-widest">{toast.message}</p>
           </div>
         </div>
       )}
 
-      <main className="flex-1 ml-72 p-10 flex flex-col items-center justify-center relative z-10 text-left">
-        <div className="w-full max-w-4xl animate-in fade-in zoom-in duration-500">
+      {/* Main Content */}
+      <main className="flex-1 md:ml-72 w-full">
+        {/* Mobile Header Bar */}
+        <div className="md:hidden flex items-center justify-between p-4 bg-white dark:bg-[#0b1121] border-b border-gray-100 dark:border-white/5 sticky top-0 z-50">
+          <button
+            onClick={() => setIsMobileSidebarOpen(true)}
+            className="bg-medical-red p-2.5 rounded-xl shadow-lg"
+            aria-label="Open menu"
+          >
+            <Menu size={20} className="text-white" />
+          </button>
+          <div className="flex items-center gap-3">
+            <NotificationHub isDarkMode={isDarkMode} />
+            <button
+              onClick={toggleTheme}
+              className={`p-2.5 rounded-xl shadow-lg transition-all ${isDarkMode ? 'bg-yellow-400 text-black' : 'bg-[#111C44] text-white'}`}
+            >
+              {isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
+            </button>
+          </div>
+        </div>
 
-          {/* HEADER */}
-          <header className="mb-10 flex justify-between items-center w-full px-2">
+        {/* Content Area */}
+        <div className="p-4 md:p-10">
+          {/* Mobile Title */}
+          <div className="md:hidden mb-6">
+            <h1 className={`text-xl font-black tracking-tighter ${isDarkMode ? 'text-white' : 'text-[#1B2559]'}`}>
+              {isAdmin ? 'Admin Profile' : 'My Profile'}
+            </h1>
+          </div>
+
+          {/* Desktop Header */}
+          <div className="hidden md:flex justify-between items-center mb-8">
             <button
               onClick={() => navigate(isAdmin ? '/admin' : '/dashboard')}
               className="p-2 rounded-xl bg-white dark:bg-white/5 border border-gray-100 dark:border-white/5 text-gray-400 hover:text-medical-red shadow-sm transition-all"
@@ -203,44 +263,101 @@ const Profile = () => {
               <ArrowLeft size={24} />
             </button>
             <div className="flex items-center gap-4">
-               <button
-                 onClick={toggleTheme}
-                 className="p-3 rounded-2xl bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 shadow-lg text-[#111C44] dark:text-yellow-400"
-               >
-                  {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
-               </button>
-               <button
-                 onClick={() => {
-                   setIsEditing(!isEditing);
-                   setMessage({ type: '', text: '' });
-                 }}
-                 className="bg-medical-red text-white py-3 px-8 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl hover:bg-red-700 transition-all"
-               >
-                  {isEditing ? 'Cancel' : 'Edit Profile'}
-               </button>
+              <NotificationHub isDarkMode={isDarkMode} />
+              <button
+                onClick={toggleTheme}
+                className="p-3 rounded-2xl bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 shadow-lg text-[#111C44] dark:text-yellow-400"
+              >
+                {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
+              </button>
+              <button
+                onClick={() => {
+                  setIsEditing(!isEditing);
+                  setMessage({ type: '', text: '' });
+                }}
+                className="bg-medical-red text-white py-3 px-8 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl hover:bg-red-700 transition-all"
+              >
+                {isEditing ? 'Cancel' : 'Edit Profile'}
+              </button>
             </div>
-          </header>
+          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          {/* Mobile Edit Button */}
+          <div className="md:hidden mb-6">
+            <button
+              onClick={() => {
+                setIsEditing(!isEditing);
+                setMessage({ type: '', text: '' });
+              }}
+              className="w-full bg-medical-red text-white py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl hover:bg-red-700 transition-all"
+            >
+              {isEditing ? 'Cancel' : 'Edit Profile'}
+            </button>
+          </div>
 
-            {/* COLUMN 1: IDENTITY CARD */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
+            {/* COLUMN 1: PROFILE CARD - ENHANCED FOR ADMIN */}
             <div className="md:col-span-1 space-y-6">
-              <div className={`p-8 rounded-[40px] shadow-2xl border text-center ${isDarkMode ? 'bg-[#111C44] border-white/5 shadow-black/40' : 'bg-white border-gray-100'}`}>
-                <div className={`w-24 h-24 rounded-3xl mx-auto flex items-center justify-center text-white text-4xl font-black mb-4 shadow-xl ${isAdmin ? 'bg-slate-700' : 'bg-medical-red'}`}>
+              {/* Main Profile Card */}
+              <div className={`p-6 md:p-8 rounded-[30px] md:rounded-[40px] shadow-2xl border text-center relative overflow-hidden ${
+                isAdmin
+                  ? 'bg-gradient-to-br from-medical-red/10 to-red-900/20 border-medical-red/30'
+                  : isDarkMode ? 'bg-[#111C44] border-white/5' : 'bg-white border-gray-100'
+              }`}>
+                {/* Admin Badge */}
+                {isAdmin && (
+                  <div className="absolute top-4 right-4">
+                    <div className="bg-medical-red text-white px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-wider flex items-center gap-1 shadow-lg">
+                      <Shield size={10} /> System Admin
+                    </div>
+                  </div>
+                )}
+
+                {/* Profile Avatar */}
+                <div className={`w-24 h-24 md:w-28 md:h-28 rounded-3xl mx-auto flex items-center justify-center text-white text-4xl md:text-5xl font-black mb-4 shadow-xl relative ${
+                  isAdmin
+                    ? 'bg-gradient-to-br from-medical-red to-red-700 ring-4 ring-medical-red/30'
+                    : isAdmin ? 'bg-slate-700' : 'bg-medical-red'
+                }`}>
                   {formData.FirstName?.[0] || '?'}
+                  {isAdmin && (
+                    <div className="absolute -bottom-2 -right-2 bg-yellow-500 rounded-full p-1.5 shadow-lg">
+                      <Shield size={12} className="text-white" />
+                    </div>
+                  )}
                 </div>
-                <h2 className={`text-xl font-black tracking-tighter uppercase ${isDarkMode ? 'text-white' : 'text-[#1B2559]'}`}>
+
+                <h2 className={`text-xl md:text-2xl font-black tracking-tighter uppercase ${isDarkMode ? 'text-white' : 'text-[#1B2559]'}`}>
                   {formData.FirstName} {formData.LastName}
                 </h2>
-                <p className={`text-[9px] font-black uppercase tracking-[0.2em] mt-1 ${isAdmin ? 'text-gray-400' : 'text-medical-red'}`}>
+                <p className={`text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] mt-2 flex items-center justify-center gap-2 ${
+                  isAdmin ? 'text-medical-red' : 'text-medical-red'
+                }`}>
+                  <Shield size={12} />
                   {formData.Role?.replace(/_/g, ' ')}
+                  {isAdmin && <span className="text-gray-400 text-[8px]">(Full Access)</span>}
                 </p>
               </div>
 
-              {/* Identity Status Management Panel */}
+              {/* Admin Stats Cards */}
+              {isAdmin && systemStats && (
+                <div className={`p-6 md:p-8 rounded-[30px] md:rounded-[40px] shadow-2xl border ${isDarkMode ? 'bg-[#111C44] border-white/5' : 'bg-white border-gray-100'}`}>
+                  <h3 className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-gray-400 mb-4 flex items-center gap-2">
+                    <TrendingUp size={14} /> System Overview
+                  </h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <AdminStatCard icon={<Users size={16} />} label="Total Users" value={systemStats.totalUsers || 0} />
+                    <AdminStatCard icon={<Heart size={16} />} label="Donors" value={systemStats.totalDonors || 0} />
+                    <AdminStatCard icon={<Activity size={16} />} label="Recipients" value={systemStats.totalRecipients || 0} />
+                    <AdminStatCard icon={<CheckCircle size={16} />} label="Matches" value={systemStats.totalMatches || 0} />
+                  </div>
+                </div>
+              )}
+
+              {/* Identity Status Management Panel - Hide for Admin */}
               {!isAdmin && (
-                <div className={`p-8 rounded-[40px] shadow-2xl border ${isDarkMode ? 'bg-[#111C44] border-white/5 shadow-black/40' : 'bg-white border-gray-100'}`}>
-                  <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-400 mb-6 italic">
+                <div className={`p-6 md:p-8 rounded-[30px] md:rounded-[40px] shadow-2xl border ${isDarkMode ? 'bg-[#111C44] border-white/5 shadow-black/40' : 'bg-white border-gray-100'}`}>
+                  <h3 className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-gray-400 mb-6 italic">
                     Identity Status
                   </h3>
 
@@ -249,7 +366,7 @@ const Profile = () => {
                       <img
                         src={formData.identityDocumentUrl}
                         alt="ID Document"
-                        className="w-full h-40 object-cover"
+                        className="w-full h-32 md:h-40 object-cover"
                         onError={(e) => { e.target.style.display = 'none'; }}
                       />
                       <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
@@ -259,7 +376,7 @@ const Profile = () => {
                           rel="noreferrer"
                           className="p-2 bg-white rounded-full text-black shadow-lg"
                         >
-                          <ExternalLink size={16} />
+                          <ExternalLink size={14} className="md:size-[16px]" />
                         </a>
                       </div>
                     </div>
@@ -268,32 +385,32 @@ const Profile = () => {
                   <div className="flex items-center gap-3 mb-4">
                     {formData.identityStatus === 'Verified' && (
                       <div className="flex items-center gap-2 text-green-500">
-                        <ShieldCheck size={20} />
-                        <span className="font-black text-[10px] uppercase tracking-widest">Verified</span>
+                        <ShieldCheck size={16} className="md:size-[20px]" />
+                        <span className="font-black text-[9px] md:text-[10px] uppercase tracking-widest">Verified</span>
                       </div>
                     )}
                     {formData.identityStatus === 'Pending' && (
                       <div className="flex items-center gap-2 text-blue-500 animate-pulse">
-                        <FileText size={20} />
-                        <span className="font-black text-[10px] uppercase tracking-widest italic">Under Review</span>
+                        <FileText size={16} className="md:size-[20px]" />
+                        <span className="font-black text-[9px] md:text-[10px] uppercase tracking-widest italic">Under Review</span>
                       </div>
                     )}
                     {formData.identityStatus === 'Rejected' && (
                       <div className="flex items-center gap-2 text-medical-red">
-                        <AlertTriangle size={20} />
-                        <span className="font-black text-[10px] uppercase tracking-widest">Rejected — Action Required</span>
+                        <AlertTriangle size={16} className="md:size-[20px]" />
+                        <span className="font-black text-[9px] md:text-[10px] uppercase tracking-widest">Rejected — Action Required</span>
                       </div>
                     )}
                     {formData.identityStatus === 'Unverified' && (
                       <div className="flex items-center gap-2 text-gray-400">
-                        <AlertTriangle size={20} />
-                        <span className="font-black text-[10px] uppercase tracking-widest italic">Unverified</span>
+                        <AlertTriangle size={16} className="md:size-[20px]" />
+                        <span className="font-black text-[9px] md:text-[10px] uppercase tracking-widest italic">Unverified</span>
                       </div>
                     )}
                   </div>
 
                   {formData.identityStatus !== 'Pending' && (
-                    <label className={`block w-full py-4 rounded-2xl text-white text-center text-[9px] font-black uppercase tracking-widest cursor-pointer transition-all shadow-lg ${getUploadButtonColor()}`}>
+                    <label className={`block w-full py-3 md:py-4 rounded-2xl text-white text-center text-[8px] md:text-[9px] font-black uppercase tracking-widest cursor-pointer transition-all shadow-lg ${getUploadButtonColor()}`}>
                       {getUploadButtonLabel()}
                       <input
                         type="file"
@@ -306,7 +423,7 @@ const Profile = () => {
                   )}
 
                   {formData.identityStatus === 'Pending' && (
-                    <p className="text-[9px] font-black uppercase tracking-widest text-blue-400 text-center italic mt-2">
+                    <p className="text-[8px] md:text-[9px] font-black uppercase tracking-widest text-blue-400 text-center italic mt-2">
                       Awaiting admin review — re-upload available after decision
                     </p>
                   )}
@@ -315,9 +432,12 @@ const Profile = () => {
             </div>
 
             {/* COLUMN 2: DATA FORM SECTION */}
-            <div className={`md:col-span-2 p-10 rounded-[45px] shadow-2xl border transition-all ${isDarkMode ? 'bg-[#111C44] border-white/5 shadow-black/40' : 'bg-white border-gray-100'}`}>
+            <div className={`md:col-span-2 p-6 md:p-10 rounded-[35px] md:rounded-[45px] shadow-2xl border transition-all ${
+              isAdmin && !isDarkMode ? 'bg-white border-medical-red/20 ring-1 ring-medical-red/10' :
+              isDarkMode ? 'bg-[#111C44] border-white/5 shadow-black/40' : 'bg-white border-gray-100'
+            }`}>
               {message.text && (
-                <div className={`p-4 rounded-2xl mb-8 text-center text-[10px] font-black uppercase border animate-in slide-in-from-top-1 ${
+                <div className={`p-3 md:p-4 rounded-2xl mb-6 md:mb-8 text-center text-[9px] md:text-[10px] font-black uppercase border animate-in slide-in-from-top-1 ${
                   message.type === 'success'
                     ? 'bg-green-500/10 border-green-500/20 text-green-500'
                     : 'bg-red-500/10 border-red-500/20 text-red-500'
@@ -326,41 +446,46 @@ const Profile = () => {
                 </div>
               )}
 
-              <form onSubmit={handleUpdate} className="space-y-6">
-                <div className="grid grid-cols-2 gap-6 text-left">
+              <form onSubmit={handleUpdate} className="space-y-4 md:space-y-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6 text-left">
                   <div className="space-y-1">
-                    <label className="text-[9px] font-black text-gray-400 ml-2 uppercase">First Name</label>
+                    <label className="text-[8px] md:text-[9px] font-black text-gray-400 ml-2 uppercase">First Name</label>
                     <input
                       name="FirstName"
                       disabled={!isEditing}
                       value={formData.FirstName}
                       onChange={(e) => setFormData(prev => ({ ...prev, FirstName: e.target.value }))}
-                      className={`w-full p-4 rounded-2xl border outline-none font-bold text-sm transition-all ${
+                      className={`w-full p-3 md:p-4 rounded-2xl border outline-none font-bold text-sm transition-all ${
                         isDarkMode ? 'bg-[#0b1121] border-white/5 text-white' : 'bg-gray-50 border-gray-200'
                       } ${!isEditing ? 'opacity-60' : ''}`}
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[9px] font-black text-gray-400 ml-2 uppercase">Last Name</label>
+                    <label className="text-[8px] md:text-[9px] font-black text-gray-400 ml-2 uppercase">Last Name</label>
                     <input
                       name="LastName"
                       disabled={!isEditing}
                       value={formData.LastName}
                       onChange={(e) => setFormData(prev => ({ ...prev, LastName: e.target.value }))}
-                      className={`w-full p-4 rounded-2xl border outline-none font-bold text-sm transition-all ${
+                      className={`w-full p-3 md:p-4 rounded-2xl border outline-none font-bold text-sm transition-all ${
                         isDarkMode ? 'bg-[#0b1121] border-white/5 text-white' : 'bg-gray-50 border-gray-200'
                       } ${!isEditing ? 'opacity-60' : ''}`}
                     />
                   </div>
                 </div>
 
-                {/* ACCOUNT TYPE - WITH ROLE CHANGE BUTTON */}
+                {/* ACCOUNT TYPE - Admin View (No Change Role Button) */}
                 <div className="space-y-1 text-left">
-                  <label className="text-[9px] font-black text-gray-400 ml-2 uppercase tracking-widest">Account Type</label>
+                  <label className="text-[8px] md:text-[9px] font-black text-gray-400 ml-2 uppercase tracking-widest">Account Type</label>
                   <div className="relative">
-                    <UserCog className="absolute left-4 top-1/2 -translate-y-1/2 text-medical-red" size={18} />
-                    <div className={`w-full p-4 pl-12 rounded-2xl border ${isDarkMode ? 'bg-[#0b1121] border-white/5 text-white' : 'bg-gray-100 border-gray-200 text-gray-600'} cursor-not-allowed flex items-center justify-between`}>
-                      <span>{formData.Role === 'Donor' ? 'Donor Account' : 'Recipient Account'}</span>
+                    <UserCog className="absolute left-4 top-1/2 -translate-y-1/2 text-medical-red" size={16} />
+                    <div className={`w-full p-3 md:p-4 pl-10 md:pl-12 rounded-2xl border ${
+                      isDarkMode ? 'bg-[#0b1121] border-white/5 text-white' : 'bg-gray-100 border-gray-200'
+                    } ${isAdmin ? 'bg-gradient-to-r from-medical-red/5 to-transparent border-medical-red/30' : ''} cursor-not-allowed flex items-center justify-between`}>
+                      <span className="text-sm flex items-center gap-2">
+                        {isAdmin && <Shield size={14} className="text-medical-red" />}
+                        {formData.Role === 'Donor' ? 'Donor Account' : formData.Role === 'Recipient' ? 'Recipient Account' : 'System Administrator'}
+                      </span>
                       {!isAdmin && (
                         <button
                           type="button"
@@ -369,16 +494,16 @@ const Profile = () => {
                             requestedRole: formData.Role === 'Donor' ? 'Recipient' : 'Donor',
                             loading: false
                           })}
-                          className="px-3 py-1.5 bg-blue-500 text-white rounded-lg text-[9px] font-black uppercase hover:bg-blue-600 transition-all"
+                          className="px-2 md:px-3 py-1 bg-blue-500 text-white rounded-lg text-[8px] md:text-[9px] font-black uppercase hover:bg-blue-600 transition-all"
                         >
                           Change Role
                         </button>
                       )}
                     </div>
                   </div>
-                  {!isAdmin && (
-                    <p className="text-[8px] text-gray-400 ml-2 mt-1">
-                      Changing role will cancel any active donation intents or requests.
+                  {isAdmin && (
+                    <p className="text-[8px] text-gray-400 ml-2 mt-1 flex items-center gap-1">
+                      <Shield size={10} /> Full system administrator privileges
                     </p>
                   )}
                 </div>
@@ -386,14 +511,14 @@ const Profile = () => {
                 {/* Blood Type - Only for non-admins */}
                 {!isAdmin && (
                   <div className="space-y-1 text-left">
-                    <label className="text-[9px] font-black text-gray-400 ml-2 uppercase tracking-widest">Vital: Blood Group</label>
+                    <label className="text-[8px] md:text-[9px] font-black text-gray-400 ml-2 uppercase tracking-widest">Vital: Blood Group</label>
                     <div className="relative">
-                      <Droplets className="absolute left-4 top-1/2 -translate-y-1/2 text-medical-red" size={18} />
+                      <Droplets className="absolute left-4 top-1/2 -translate-y-1/2 text-medical-red" size={16} />
                       <select
                         disabled={!isEditing}
                         value={formData.bloodType}
                         onChange={(e) => setFormData(prev => ({ ...prev, bloodType: e.target.value }))}
-                        className={`w-full p-4 pl-12 rounded-2xl border outline-none font-bold text-sm appearance-none cursor-pointer ${
+                        className={`w-full p-3 md:p-4 pl-10 md:pl-12 rounded-2xl border outline-none font-bold text-sm appearance-none cursor-pointer ${
                           isDarkMode ? 'bg-[#0b1121] border-white/5 text-white' : 'bg-gray-50 border-gray-200'
                         } ${!isEditing ? 'opacity-60' : ''}`}
                       >
@@ -407,15 +532,15 @@ const Profile = () => {
                 )}
 
                 <div className="space-y-1 text-left">
-                  <label className="text-[9px] font-black text-gray-400 ml-2 uppercase">Contact Number</label>
+                  <label className="text-[8px] md:text-[9px] font-black text-gray-400 ml-2 uppercase">Contact Number</label>
                   <div className="relative">
-                    <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                    <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
                     <input
                       name="PhoneNumber"
                       disabled={!isEditing}
                       value={formData.PhoneNumber}
                       onChange={(e) => setFormData(prev => ({ ...prev, PhoneNumber: e.target.value }))}
-                      className={`w-full p-4 pl-12 rounded-2xl border outline-none font-bold text-sm transition-all ${
+                      className={`w-full p-3 md:p-4 pl-10 md:pl-12 rounded-2xl border outline-none font-bold text-sm transition-all ${
                         isDarkMode ? 'bg-[#0b1121] border-white/5 text-white' : 'bg-gray-50 border-gray-200'
                       } ${!isEditing ? 'opacity-60' : ''}`}
                     />
@@ -423,20 +548,20 @@ const Profile = () => {
                 </div>
 
                 <div className="space-y-1 opacity-40 text-left">
-                  <label className="text-[9px] font-black text-gray-400 ml-2 uppercase">Authenticated Email</label>
-                  <div className={`w-full p-4 rounded-2xl border flex items-center gap-3 ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-gray-200 border-gray-200'}`}>
-                    <Mail size={16} />
-                    <span className="text-sm font-bold">{user?.EmailAddress}</span>
-                    <Lock size={14} className="ml-auto" />
+                  <label className="text-[8px] md:text-[9px] font-black text-gray-400 ml-2 uppercase">Authenticated Email</label>
+                  <div className={`w-full p-3 md:p-4 rounded-2xl border flex items-center gap-3 ${isDarkMode ? 'bg-white/5 border-white/10 text-white' : 'bg-gray-200 border-gray-200'}`}>
+                    <Mail size={14} className="md:size-[16px]" />
+                    <span className="text-xs md:text-sm font-bold">{user?.EmailAddress}</span>
+                    <Lock size={12} className="md:size-[14px] ml-auto" />
                   </div>
                 </div>
 
                 {isEditing && (
                   <button
                     type="submit"
-                    className="w-full bg-medical-red hover:bg-red-700 text-white py-5 rounded-3xl font-black text-xs uppercase tracking-[0.3em] shadow-xl transition-all active:scale-95 flex items-center justify-center gap-3 mt-6"
+                    className="w-full bg-medical-red hover:bg-red-700 text-white py-4 md:py-5 rounded-3xl font-black text-[10px] md:text-xs uppercase tracking-[0.3em] shadow-xl transition-all active:scale-95 flex items-center justify-center gap-3 mt-4 md:mt-6"
                   >
-                    <Save size={18} /> Update Registry Account
+                    <Save size={16} className="md:size-[18px]" /> Update Registry Account
                   </button>
                 )}
               </form>
@@ -447,16 +572,22 @@ const Profile = () => {
 
       {/* ROLE CHANGE CONFIRMATION MODAL */}
       {roleChangeModal.isOpen && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in zoom-in duration-200">
-          <div className="bg-white rounded-[40px] p-8 max-w-md w-full shadow-2xl">
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in zoom-in duration-200"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="role-change-modal-title"
+          aria-describedby="role-change-modal-description"
+        >
+          <div className="bg-white rounded-[30px] md:rounded-[40px] p-6 md:p-8 max-w-md w-full shadow-2xl mx-4">
             <div className="text-center mb-6">
-              <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <AlertTriangle size={32} className="text-yellow-500" />
+              <div className="w-14 h-14 md:w-16 md:h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4" aria-hidden="true">
+                <AlertTriangle size={24} className="md:size-[32px] text-yellow-500" />
               </div>
-              <h3 className="text-2xl font-black text-[#1B2559]">Change Account Role?</h3>
+              <h3 id="role-change-modal-title" className="text-xl md:text-2xl font-black text-[#1B2559]">Change Account Role?</h3>
             </div>
 
-            <p className="text-gray-600 text-center mb-4">
+            <p id="role-change-modal-description" className="text-gray-600 text-center text-sm md:text-base mb-4">
               You are about to change from <span className="font-bold">{user?.Role}</span> to
               <span className="font-bold text-medical-red"> {roleChangeModal.requestedRole}</span>
             </p>
@@ -481,16 +612,16 @@ const Profile = () => {
             <div className="flex gap-3">
               <button
                 onClick={() => setRoleChangeModal({ isOpen: false, requestedRole: '', loading: false })}
-                className="flex-1 py-3 rounded-xl bg-gray-100 text-gray-600 font-black text-[10px] uppercase tracking-wider"
+                className="flex-1 py-3 rounded-xl bg-gray-100 text-gray-600 font-black text-[9px] md:text-[10px] uppercase tracking-wider"
               >
                 Cancel
               </button>
               <button
                 onClick={handleDirectRoleChange}
                 disabled={roleChangeModal.loading}
-                className="flex-1 py-3 rounded-xl bg-medical-red text-white font-black text-[10px] uppercase tracking-wider hover:bg-red-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                className="flex-1 py-3 rounded-xl bg-medical-red text-white font-black text-[9px] md:text-[10px] uppercase tracking-wider hover:bg-red-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
               >
-                {roleChangeModal.loading ? <><RefreshCw size={14} className="animate-spin" /> Processing...</> : 'Confirm Change'}
+                {roleChangeModal.loading ? <><RefreshCw size={12} className="md:size-[14px] animate-spin" /> Processing...</> : 'Confirm Change'}
               </button>
             </div>
           </div>
@@ -499,5 +630,16 @@ const Profile = () => {
     </div>
   );
 };
+
+// Admin Stat Card Component
+const AdminStatCard = ({ icon, label, value }) => (
+  <div className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 dark:bg-white/5">
+    <div className="text-medical-red">{icon}</div>
+    <div>
+      <p className="text-lg font-black">{value}</p>
+      <p className="text-[8px] text-gray-400 uppercase tracking-wider">{label}</p>
+    </div>
+  </div>
+);
 
 export default Profile;

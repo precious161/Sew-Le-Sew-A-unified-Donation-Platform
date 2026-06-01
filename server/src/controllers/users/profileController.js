@@ -1,6 +1,7 @@
 import { StatusCodes } from "http-status-codes";
 import prisma from "../../config/db.js";
 import * as AuditService from "../../services/security/auditService.js";
+import logger from "../../utils/logger.js";
 
 export const viewProfile = async (req, res) => {
   try {
@@ -33,7 +34,7 @@ export const viewProfile = async (req, res) => {
       data: user,
     });
   } catch (error) {
-    console.error("viewProfile Error:", error);
+    logger.error("viewProfile Error:", error);
     return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
       success: false,
       message: "Error fetching profile",
@@ -81,13 +82,15 @@ export const updateProfile = async (req, res) => {
       },
     });
 
+    logger.info(`Profile updated`, { userId: req.user.id, email: req.user.EmailAddress });
+
     return res.status(StatusCodes.OK).json({
       success: true,
       message: "Profile updated successfully",
       data: updatedUser,
     });
   } catch (error) {
-    console.error("updateProfile Error:", error);
+    logger.error("updateProfile Error:", error);
     return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
       success: false,
       message: "Update failed",
@@ -151,13 +154,15 @@ export const uploadIdentityDocument = async (req, res) => {
       },
     });
 
+    logger.info(`Identity document uploaded`, { userId, status: "Pending" });
+
     return res.status(StatusCodes.OK).json({
       success: true,
       message: "Identity document uploaded successfully. Your verification is now pending.",
       data: updatedUser,
     });
   } catch (error) {
-    console.error("uploadIdentityDocument Error:", error);
+    logger.error("uploadIdentityDocument Error:", error);
     return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
       success: false,
       message: "An error occurred while uploading your document.",
@@ -174,9 +179,8 @@ export const selfRoleChange = async (req, res) => {
     const currentRole = req.user.Role;
     const { newRole, reason } = req.body;
 
-    console.log(`🔄 Self role change requested: User ${userId} from ${currentRole} to ${newRole}`);
+    logger.info(`🔄 Self role change requested`, { userId, from: currentRole, to: newRole });
 
-    // Validate new role
     const validRoles = ["Donor", "Recipient"];
     if (!validRoles.includes(newRole)) {
       return res.status(StatusCodes.BAD_REQUEST).json({
@@ -185,7 +189,6 @@ export const selfRoleChange = async (req, res) => {
       });
     }
 
-    // Check if already has the target role
     if (currentRole === newRole) {
       return res.status(StatusCodes.BAD_REQUEST).json({
         success: false,
@@ -193,7 +196,6 @@ export const selfRoleChange = async (req, res) => {
       });
     }
 
-    // Get user with all active data (FIXED: removed direct matches include)
     const user = await prisma.user.findUnique({
       where: { id: userId },
       include: {
@@ -209,7 +211,6 @@ export const selfRoleChange = async (req, res) => {
       });
     }
 
-    // Get active matches separately (through intents and requests)
     const activeMatchesAsDonor = await prisma.match.findMany({
       where: {
         intent: { userId: userId },
@@ -225,15 +226,9 @@ export const selfRoleChange = async (req, res) => {
     });
 
     const activeMatches = [...activeMatchesAsDonor, ...activeMatchesAsRecipient];
-
-    // ============================================
-    // SAFETY CHECKS & AUTO-CLEANUP
-    // ============================================
-
     const changes = [];
     const warnings = [];
 
-    // 1. Check for active Donor Intents (if becoming Recipient)
     if (currentRole === "Donor" && newRole === "Recipient") {
       const activeIntents = user.donationIntents.filter(
         i => ["Active", "PendingVerification", "Matched"].includes(i.status)
@@ -245,7 +240,6 @@ export const selfRoleChange = async (req, res) => {
       }
     }
 
-    // 2. Check for active Recipient Requests (if becoming Donor)
     if (currentRole === "Recipient" && newRole === "Donor") {
       const activeRequests = user.requests.filter(
         r => ["PendingVerification", "Pending", "Matching"].includes(r.status)
@@ -257,18 +251,12 @@ export const selfRoleChange = async (req, res) => {
       }
     }
 
-    // 3. Check for active matches
     if (activeMatches.length > 0) {
       warnings.push(`Found ${activeMatches.length} active match(es) that will be cancelled`);
       changes.push(`Cancelled ${activeMatches.length} active matches`);
     }
 
-    // ============================================
-    // PERFORM THE ROLE CHANGE WITH TRANSACTION
-    // ============================================
-
     await prisma.$transaction(async (tx) => {
-      // 1. Cancel all active donor intents (if becoming Recipient)
       if (currentRole === "Donor" && newRole === "Recipient") {
         await tx.donationIntent.updateMany({
           where: {
@@ -282,7 +270,6 @@ export const selfRoleChange = async (req, res) => {
         });
       }
 
-      // 2. Cancel all active recipient requests (if becoming Donor)
       if (currentRole === "Recipient" && newRole === "Donor") {
         await tx.donationRequest.updateMany({
           where: {
@@ -296,7 +283,6 @@ export const selfRoleChange = async (req, res) => {
         });
       }
 
-      // 3. Cancel all active matches involving this user
       if (activeMatches.length > 0) {
         await tx.match.updateMany({
           where: {
@@ -313,20 +299,15 @@ export const selfRoleChange = async (req, res) => {
         });
       }
 
-      // 4. Reset eligibility status for the new role
       await tx.userEligibilityStatus.deleteMany({
         where: { userId: userId },
       });
 
-      // 5. Update user role
       await tx.user.update({
         where: { id: userId },
-        data: {
-          Role: newRole,
-        },
+        data: { Role: newRole },
       });
 
-      // 6. Create notification for user
       await tx.notification.create({
         data: {
           userId: userId,
@@ -335,7 +316,6 @@ export const selfRoleChange = async (req, res) => {
       });
     });
 
-    // Create audit log
     await AuditService.createLogEntry(
       userId,
       `User self-changed role from ${currentRole} to ${newRole}`,
@@ -343,7 +323,7 @@ export const selfRoleChange = async (req, res) => {
       `User ID: ${userId}. Changes: ${changes.join(", ")}. Warnings: ${warnings.join(", ")}. Reason: ${reason || "User requested"}`
     );
 
-    console.log(`✅ Role changed successfully: ${userId} from ${currentRole} to ${newRole}`);
+    logger.info(`✅ Role changed successfully`, { userId, from: currentRole, to: newRole });
 
     return res.status(StatusCodes.OK).json({
       success: true,
@@ -353,9 +333,8 @@ export const selfRoleChange = async (req, res) => {
         changes: changes,
       },
     });
-
   } catch (error) {
-    console.error("Self Role Change Error:", error);
+    logger.error("Self Role Change Error:", error);
     return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
       success: false,
       message: "Failed to change role: " + error.message,
