@@ -42,4 +42,6 @@ services:
       - key: GROQ_API_KEY
         sync: false
       - key: FRONTEND_URL
-        value: http://localhost:5173
+        value: https://sew-le-sew-platform.vercel.app
+      - key: CORS_ORIGINS
+        value: https://sew-le-sew-platform.vercel.app
