@@ -28,10 +28,6 @@ services:
       - key: GOOGLE_CLIENT_SECRET
         sync: false
 
-      # Google API Key (ONLY if you use Maps/Drive/etc)
-      - key: GOOGLE_API_KEY
-        sync: false
-
       # Email
       - key: EMAIL_HOST
         value: smtp.gmail.com
