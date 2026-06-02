@@ -38,7 +38,7 @@ export const config = {
   googleClientId: process.env.GOOGLE_CLIENT_ID,
   googleClientSecret: process.env.GOOGLE_CLIENT_SECRET,
   frontendUrl: process.env.FRONTEND_URL || 'https://sew-le-sew-platform.vercel.app',
-  apiUrl: process.env.API_URL || 'http://localhost:5000',
+  apiUrl: process.env.API_URL || 'https://sew-lesew-backend-gzpf.onrender.com',
   sessionSecret: process.env.SESSION_SECRET,
   emailHost: process.env.EMAIL_HOST,
   emailPort: parseInt(process.env.EMAIL_PORT) || 587,
