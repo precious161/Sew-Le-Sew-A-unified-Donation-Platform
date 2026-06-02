@@ -1,4 +1,5 @@
 import { StatusCodes } from "http-status-codes";
+import bcrypt from "bcryptjs";
 import prisma from "../../config/db.js";
 import * as AuditService from "../../services/security/auditService.js";
 import logger from "../../utils/logger.js";
@@ -44,28 +45,101 @@ export const viewProfile = async (req, res) => {
 
 export const updateProfile = async (req, res) => {
   try {
-    const { FirstName, LastName, PhoneNumber, Role, bloodType } = req.body;
+    const { FirstName, LastName, PhoneNumber, bloodType } = req.body;
 
-    let updatedRole = req.user.Role;
+    // ✅ VALIDATION: Check if any fields were actually sent
+    if (FirstName === undefined && LastName === undefined && PhoneNumber === undefined && bloodType === undefined) {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        success: false,
+        message: "No valid fields to update. Please provide FirstName, LastName, PhoneNumber, or bloodType."
+      });
+    }
 
-    if (Role) {
-      const selfAssignRoles = ["Donor", "Recipient"];
-      if (selfAssignRoles.includes(Role)) {
-        updatedRole = Role;
-      } else if (Role === "Red_Cross_Admin") {
-        return res.status(StatusCodes.FORBIDDEN).json({
+    // ✅ VALIDATION: FirstName - if provided, must be valid
+    if (FirstName !== undefined) {
+      if (typeof FirstName !== 'string' || FirstName.trim().length === 0) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
           success: false,
-          message: "You cannot promote yourself to Admin. Contact an administrator.",
+          message: "First name cannot be empty"
+        });
+      }
+      if (FirstName.trim().length < 2) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "First name must be at least 2 characters"
+        });
+      }
+      if (FirstName.trim().length > 50) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "First name cannot exceed 50 characters"
         });
       }
     }
 
+    // ✅ VALIDATION: LastName - if provided, must be valid
+    if (LastName !== undefined) {
+      if (typeof LastName !== 'string' || LastName.trim().length === 0) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Last name cannot be empty"
+        });
+      }
+      if (LastName.trim().length < 2) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Last name must be at least 2 characters"
+        });
+      }
+      if (LastName.trim().length > 50) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Last name cannot exceed 50 characters"
+        });
+      }
+    }
+
+    // ✅ VALIDATION: PhoneNumber - if provided, must be valid
+    if (PhoneNumber !== undefined) {
+      const phoneRegex = /^[0-9+\-\s()]+$/;
+      if (!phoneRegex.test(PhoneNumber)) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Phone number contains invalid characters. Use only numbers, +, -, spaces, or parentheses."
+        });
+      }
+      const digitsOnly = PhoneNumber.replace(/\D/g, '');
+      if (digitsOnly.length < 10) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Phone number must have at least 10 digits"
+        });
+      }
+      if (digitsOnly.length > 15) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Phone number cannot exceed 15 digits"
+        });
+      }
+    }
+
+    // ✅ VALIDATION: bloodType - if provided, must be valid
+    if (bloodType !== undefined) {
+      const validBloodTypes = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
+      if (!validBloodTypes.includes(bloodType)) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Invalid blood type. Valid types: A+, A-, B+, B-, AB+, AB-, O+, O-"
+        });
+      }
+    }
+
+    // Prepare update data (trim strings)
     const updateData = {};
-    if (FirstName !== undefined) updateData.FirstName = FirstName;
-    if (LastName !== undefined) updateData.LastName = LastName;
+    if (FirstName !== undefined) updateData.FirstName = FirstName.trim();
+    if (LastName !== undefined) updateData.LastName = LastName.trim();
     if (PhoneNumber !== undefined) updateData.PhoneNumber = PhoneNumber;
     if (bloodType !== undefined) updateData.bloodType = bloodType;
-    updateData.Role = updatedRole;
 
     const updatedUser = await prisma.user.update({
       where: { id: req.user.id },
@@ -82,7 +156,7 @@ export const updateProfile = async (req, res) => {
       },
     });
 
-    logger.info(`Profile updated`, { userId: req.user.id, email: req.user.EmailAddress });
+    logger.info(`Profile updated`, { userId: req.user.id, fields: Object.keys(updateData) });
 
     return res.status(StatusCodes.OK).json({
       success: true,
@@ -94,6 +168,98 @@ export const updateProfile = async (req, res) => {
     return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
       success: false,
       message: "Update failed",
+    });
+  }
+};
+
+export const changePassword = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { currentPassword, newPassword, confirmNewPassword } = req.body;
+
+    // ✅ VALIDATION: Check if all fields are provided
+    if (!currentPassword || !newPassword || !confirmNewPassword) {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        success: false,
+        message: "All password fields are required"
+      });
+    }
+
+    // ✅ VALIDATION: Check if new passwords match
+    if (newPassword !== confirmNewPassword) {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        success: false,
+        message: "New passwords do not match"
+      });
+    }
+
+    // ✅ VALIDATION: Password strength
+    if (newPassword.length < 8) {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        success: false,
+        message: "Password must be at least 8 characters"
+      });
+    }
+
+    if (!/[A-Z]/.test(newPassword)) {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        success: false,
+        message: "Password must contain at least one uppercase letter"
+      });
+    }
+
+    if (!/[0-9]/.test(newPassword)) {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        success: false,
+        message: "Password must contain at least one number"
+      });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId }
+    });
+
+    if (!user) {
+      return res.status(StatusCodes.NOT_FOUND).json({
+        success: false,
+        message: "User not found"
+      });
+    }
+
+    const isMatch = await bcrypt.compare(currentPassword, user.Password);
+    if (!isMatch) {
+      return res.status(StatusCodes.UNAUTHORIZED).json({
+        success: false,
+        message: "Current password is incorrect"
+      });
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: { Password: hashedPassword }
+    });
+
+    await prisma.notification.create({
+      data: {
+        userId: userId,
+        message: "Your password has been changed successfully. If you did not make this change, please contact support immediately."
+      }
+    });
+
+    logger.info(`User ${userId} changed password`);
+
+    return res.status(StatusCodes.OK).json({
+      success: true,
+      message: "Password changed successfully"
+    });
+  } catch (error) {
+    logger.error("changePassword Error:", error);
+    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+      success: false,
+      message: "Failed to change password"
     });
   }
 };
@@ -178,6 +344,14 @@ export const selfRoleChange = async (req, res) => {
     const userId = req.user.id;
     const currentRole = req.user.Role;
     const { newRole, reason } = req.body;
+
+    // ✅ VALIDATION: Check if newRole is provided
+    if (!newRole) {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        success: false,
+        message: "Please provide a new role (Donor or Recipient)",
+      });
+    }
 
     logger.info(`🔄 Self role change requested`, { userId, from: currentRole, to: newRole });
 
