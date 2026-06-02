@@ -114,6 +114,7 @@ export const sendPasswordResetEmail = async (email, firstName, token) => {
     });
 
     logger.info(`Password reset email sent to ${email}`);
+console.log(`📧 RESET LINK FOR ${email}: ${resetUrl}`);
     return true;
   } catch (error) {
     logger.error(` Failed to send email to ${email}:`, error.message);
