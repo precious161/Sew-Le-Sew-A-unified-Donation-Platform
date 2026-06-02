@@ -4,7 +4,7 @@ import * as ProfileController from "../../controllers/users/profileController.js
 import { upload } from "../../config/cloudinary.js";
 import { updateProfileSchema, changePasswordSchema } from "../../validations/profileSchema.js";
 import { validateRequest } from "../../middleware/donations/validateRequest.js";
-import { validateFileUpload } from "../../middleware/validation/fileValidation.js";
+import { validateFileUpload } from "../../middleware/fileValidation.js";
 
 const router = Router();
 
