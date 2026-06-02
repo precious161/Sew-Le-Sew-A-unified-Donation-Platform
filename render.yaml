@@ -16,16 +16,32 @@ services:
       - key: DATABASE_URL
         sync: false
 
-      # Security (Render will generate these automatically)
+      # Auth Secrets
       - key: JWT_SECRET
         generateValue: true
       - key: SESSION_SECRET
         generateValue: true
 
-      # Google OAuth
+      # Google OAuth (for login)
       - key: GOOGLE_CLIENT_ID
         sync: false
       - key: GOOGLE_CLIENT_SECRET
+        sync: false
+
+      # Google API Key (ONLY if you use Maps/Drive/etc)
+      - key: GOOGLE_API_KEY
+        sync: false
+
+      # Email
+      - key: EMAIL_HOST
+        value: smtp.gmail.com
+      - key: EMAIL_PORT
+        value: "587"
+      - key: EMAIL_USER
+        sync: false
+      - key: EMAIL_PASS
+        sync: false
+      - key: EMAIL_FROM
         sync: false
 
       # Cloudinary
@@ -36,22 +52,12 @@ services:
       - key: CLOUDINARY_API_SECRET
         sync: false
 
-      # AI
+      # Groq AI
       - key: GROQ_API_KEY
         sync: false
 
-      # Email
-      - key: EMAIL_HOST
-        value: smtp.gmail.com
-      - key: EMAIL_PORT
-        value: 587
-      - key: EMAIL_USER
-        sync: false
-      - key: EMAIL_PASS
-        sync: false
-      - key: EMAIL_FROM
-        sync: false
-
-      # Frontend (update after Vercel deploy)
+      # Frontend URLs
       - key: FRONTEND_URL
-        value: https://sew-lesew-frontend.vercel.app
+        sync: false
+      - key: API_URL
+        sync: false
