@@ -37,7 +37,7 @@ export const config = {
   groqApiKey: process.env.GROQ_API_KEY,
   googleClientId: process.env.GOOGLE_CLIENT_ID,
   googleClientSecret: process.env.GOOGLE_CLIENT_SECRET,
-  frontendUrl: process.env.FRONTEND_URL || 'http://localhost:5173',
+  frontendUrl: process.env.FRONTEND_URL || 'https://sew-le-sew-platform.vercel.app',
   apiUrl: process.env.API_URL || 'http://localhost:5000',
   sessionSecret: process.env.SESSION_SECRET,
   emailHost: process.env.EMAIL_HOST,
