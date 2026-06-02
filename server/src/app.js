@@ -27,7 +27,7 @@ import eventRoutes from "./routes/events/eventRoutes.js";
 import aiRoutes from './routes/ai/index.js';
 
 dotenv.config();
-
+console.log('🔧 Frontend URL configured as:', config.frontendUrl);
 const app=express();
 
 const allowedOrigins = [
@@ -83,6 +83,16 @@ catch(error){
       details: error.message
      })
 }
+});
+
+// Debug Cloudinary config (remove after testing)
+app.get('/api/debug/cloudinary', (req, res) => {
+  res.json({
+    hasCloudName: !!process.env.CLOUDINARY_CLOUD_NAME,
+    hasApiKey: !!process.env.CLOUDINARY_API_KEY,
+    hasApiSecret: !!process.env.CLOUDINARY_API_SECRET,
+    cloudName: process.env.CLOUDINARY_CLOUD_NAME,
+  });
 });
 
 // Auth Routes
