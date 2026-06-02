@@ -180,7 +180,7 @@ export const sendVerificationStatusEmail = async (email, firstName, data) => {
           `}
 
           <div style="text-align: center;">
-            <a href="${process.env.FRONTEND_URL}/dashboard" class="button">Go to Dashboard</a>
+           <a href="${config.frontendUrl}/dashboard" class="button">Go to Dashboard</a>
           </div>
 
           <hr />
@@ -259,7 +259,7 @@ export const sendMatchNotificationEmail = async (email, firstName, matchData) =>
           <p><strong>Location:</strong> ${location}</p>
           <p><strong>Date:</strong> ${new Date(date).toLocaleDateString()}</p>
           <div style="text-align: center;">
-            <a href="${process.env.FRONTEND_URL}/dashboard" class="button">View Details</a>
+            <a href="${config.frontendUrl}/dashboard" class="button">View Details</a>
           </div>
         </div>
         <div class="footer">
