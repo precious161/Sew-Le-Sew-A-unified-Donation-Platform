@@ -2,37 +2,56 @@ services:
   - type: web
     name: sew-lesew-backend
     runtime: node
-    repo: https://github.com/precious161/Sew-Le-Sew-A-unified-Donation-Platform
-    branch: main
     rootDir: backend
-    plan: free
     buildCommand: npm install && npx prisma generate
-    startCommand: node server.js
+    startCommand: node src/index.js
+    plan: free
     healthCheckPath: /
     envVars:
+      # Core
       - key: NODE_ENV
         value: production
       - key: PORT
         value: 5000
       - key: DATABASE_URL
         sync: false
+
+      # Security (Render will generate these automatically)
       - key: JWT_SECRET
         generateValue: true
       - key: SESSION_SECRET
         generateValue: true
+
+      # Google OAuth
       - key: GOOGLE_CLIENT_ID
         sync: false
       - key: GOOGLE_CLIENT_SECRET
         sync: false
+
+      # Cloudinary
       - key: CLOUDINARY_CLOUD_NAME
         sync: false
       - key: CLOUDINARY_API_KEY
         sync: false
       - key: CLOUDINARY_API_SECRET
         sync: false
+
+      # AI
       - key: GROQ_API_KEY
         sync: false
-      - key: FRONTEND_URL
-        value: https://sew-lesew-frontend.onrender.com
-      - key: API_URL
+
+      # Email
+      - key: EMAIL_HOST
+        value: smtp.gmail.com
+      - key: EMAIL_PORT
+        value: 587
+      - key: EMAIL_USER
         sync: false
+      - key: EMAIL_PASS
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+
+      # Frontend (update after Vercel deploy)
+      - key: FRONTEND_URL
+        value: https://sew-lesew-frontend.vercel.app
