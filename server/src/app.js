@@ -30,9 +30,11 @@ dotenv.config();
 
 const app=express();
 
-const allowedOrigins = process.env.NODE_ENV === 'production'
-  ? process.env.CORS_ORIGINS?.split(',') || []
-  : ['http://localhost:5173', 'http://localhost:3000'];
+const allowedOrigins = [
+  'https://sew-le-sew-platform.vercel.app',
+  'http://localhost:5173',
+  'http://localhost:3000'
+];
 
 app.use(cors({
   origin: function(origin, callback) {
