@@ -4,7 +4,7 @@ import logger from '../utils/logger.js';
 // Login rate limiter - 5 attempts per 15 minutes
 export const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 5,
+  max: 20,
   skipSuccessfulRequests: true,
   message: {
     success: false,
@@ -21,7 +21,7 @@ export const loginLimiter = rateLimit({
 // Signup rate limiter - 3 accounts per hour per IP
 export const signupLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
-  max: 3,
+  max: 20,
   message: {
     success: false,
     message: 'Too many accounts created. Please try again later.'
@@ -37,7 +37,7 @@ export const signupLimiter = rateLimit({
 // Password reset request limiter
 export const resetPasswordLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
-  max: 3,
+  max: 20,
   message: {
     success: false,
     message: 'Too many password reset requests. Please try again later.'
@@ -57,7 +57,7 @@ export const resetPasswordLimiter = rateLimit({
 // Donation intent registration - 5 per hour
 export const intentLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
-  max: 5,
+  max: 20,
   message: {
     success: false,
     message: 'Too many donation intents registered. Please try again later.'
@@ -73,7 +73,7 @@ export const intentLimiter = rateLimit({
 // Donation request submission - 3 per hour
 export const requestLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
-  max: 3,
+  max: 20,
   message: {
     success: false,
     message: 'Too many donation requests submitted. Please try again later.'
@@ -89,7 +89,7 @@ export const requestLimiter = rateLimit({
 // Eligibility check - 10 per hour
 export const eligibilityLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
-  max: 10,
+  max: 20,
   message: {
     success: false,
     message: 'Too many eligibility checks. Please try again later.'
@@ -105,7 +105,7 @@ export const eligibilityLimiter = rateLimit({
 // Financial contribution submission - 3 per day
 export const contributionLimiter = rateLimit({
   windowMs: 24 * 60 * 60 * 1000,
-  max: 3,
+  max: 20,
   message: {
     success: false,
     message: 'Too many financial contributions submitted. Please try again tomorrow.'
@@ -125,7 +125,7 @@ export const contributionLimiter = rateLimit({
 // Matching engine execution - 10 per hour (admin only)
 export const matchingEngineLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
-  max: 10,
+  max: 20,
   message: {
     success: false,
     message: 'Too many matching engine executions. Please try again later.'

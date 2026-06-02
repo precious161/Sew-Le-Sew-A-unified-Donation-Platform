@@ -3,6 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import session from 'express-session';
 import passport from './config/passport.js';
+import { config } from './config/env.js';
 import { StatusCodes } from 'http-status-codes';
 
 // Import Auth Routes
@@ -28,7 +29,9 @@ import aiRoutes from './routes/ai/index.js';
 
 dotenv.config();
 console.log('🔧 Frontend URL configured as:', config.frontendUrl);
+
 const app=express();
+app.set('trust proxy', 1);
 
 const allowedOrigins = [
   'https://sew-le-sew-platform.vercel.app',
@@ -66,6 +69,7 @@ app.use(session({
 
 app.use(passport.initialize());
 app.use(passport.session());
+
 
 // Main Route
 app.get('/',async (req,res)=>{
