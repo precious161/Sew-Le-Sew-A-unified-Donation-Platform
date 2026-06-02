@@ -57,5 +57,5 @@ temp/
 
 # Deployment
 .vercel/
-.zeabur/
+.render/
 EOF
