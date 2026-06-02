@@ -36,4 +36,3 @@ services:
         value: https://sew-lesew-frontend.onrender.com
       - key: API_URL
         sync: false
-EOF:
