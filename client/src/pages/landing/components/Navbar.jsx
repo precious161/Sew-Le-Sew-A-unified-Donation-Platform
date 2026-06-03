@@ -49,8 +49,8 @@ const Navbar = () => {
 
   const navLinks = [
     { name: 'Events', path: '/events', hasNotification: hasNewEvents },
-    { name: 'Our Platform', path: '/platform', hasNotification: false },
-    { name: 'Contact Us', path: '/contact', hasNotification: false },
+    { name: 'Platform', path: '/platform', hasNotification: false },
+    { name: 'Contact', path: '/contact', hasNotification: false },
   ];
 
   return (
