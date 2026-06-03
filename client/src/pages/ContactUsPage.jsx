@@ -6,8 +6,8 @@ import {
   MessageCircle, Headphones, FileText, Building2, Users,
   Github, Award, Shield, Coffee
 } from 'lucide-react';
-import Navbar from '../landing/components/Navbar';
-import Footer from '../landing/components/Footer';
+import Navbar from './landing/components/Navbar';
+import Footer from './landing/components/Footer';
 
 const ContactUs = () => {
   const navigate = useNavigate();
