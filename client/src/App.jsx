@@ -16,7 +16,7 @@ import EventsPage from './pages/EventsPage';
 import PlatformPage from './pages/PlatformPage';
 import ForgotPassword from './pages/auth/ForgotPassword';
 import ResetPassword from './pages/auth/ResetPassword';
-import ContactUs from './pages/ContactUs';
+import ContactUs from './pages/ContactUsPage';
 
 
 
