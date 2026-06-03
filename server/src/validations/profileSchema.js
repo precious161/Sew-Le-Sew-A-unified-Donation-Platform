@@ -9,7 +9,7 @@ export const updateProfileSchema = z.object({
     .max(15, "Phone number too long")
     .regex(/^[0-9+\-\s]+$/, "Phone number contains invalid characters")
     .optional(),
-  bloodType: z.enum(["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"]).optional(),
+  bloodType: z.enum(["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"]).optional().nullable(),
 
   // Prevent empty strings - convert to null/undefined
 }).transform(data => {
