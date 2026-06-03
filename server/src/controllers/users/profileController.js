@@ -46,6 +46,7 @@ export const viewProfile = async (req, res) => {
 export const updateProfile = async (req, res) => {
   try {
     const { FirstName, LastName, PhoneNumber, bloodType } = req.body;
+    const userRole = req.user.Role;
 
     // ✅ VALIDATION: Check if any fields were actually sent
     if (FirstName === undefined && LastName === undefined && PhoneNumber === undefined && bloodType === undefined) {
@@ -123,8 +124,9 @@ export const updateProfile = async (req, res) => {
       }
     }
 
-    // ✅ VALIDATION: bloodType - if provided, must be valid
-    if (bloodType !== undefined) {
+    // ✅ VALIDATION: bloodType - ONLY for Donors and Recipients
+    // Admins and Red_Cross_Admin can skip bloodType
+    if (bloodType !== undefined && (userRole === 'Donor' || userRole === 'Recipient')) {
       const validBloodTypes = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
       if (!validBloodTypes.includes(bloodType)) {
         return res.status(StatusCodes.BAD_REQUEST).json({
@@ -139,7 +141,11 @@ export const updateProfile = async (req, res) => {
     if (FirstName !== undefined) updateData.FirstName = FirstName.trim();
     if (LastName !== undefined) updateData.LastName = LastName.trim();
     if (PhoneNumber !== undefined) updateData.PhoneNumber = PhoneNumber;
-    if (bloodType !== undefined) updateData.bloodType = bloodType;
+
+    // Only add bloodType if user is Donor or Recipient AND bloodType was provided
+    if ((userRole === 'Donor' || userRole === 'Recipient') && bloodType !== undefined) {
+      updateData.bloodType = bloodType;
+    }
 
     const updatedUser = await prisma.user.update({
       where: { id: req.user.id },
@@ -156,7 +162,7 @@ export const updateProfile = async (req, res) => {
       },
     });
 
-    logger.info(`Profile updated`, { userId: req.user.id, fields: Object.keys(updateData) });
+    logger.info(`Profile updated`, { userId: req.user.id, fields: Object.keys(updateData), role: userRole });
 
     return res.status(StatusCodes.OK).json({
       success: true,
