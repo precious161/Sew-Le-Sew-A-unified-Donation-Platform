@@ -22,9 +22,9 @@ if (config.emailUser && config.emailPass) {
     },
     // ✅ FORCE IPv4 - This fixes the connection timeout
     family: 4,
-    connectionTimeout: 30000,
-    greetingTimeout: 30000,
-    socketTimeout: 30000,
+    connectionTimeout: 80000,
+    greetingTimeout: 80000,
+    socketTimeout: 80000,
   });
   console.log('✅ Email service configured - Transporter created (IPv4 forced)');
   logger.info(" Email service configured");
