@@ -16,6 +16,7 @@ import EventsPage from './pages/EventsPage';
 import PlatformPage from './pages/PlatformPage';
 import ForgotPassword from './pages/auth/ForgotPassword';
 import ResetPassword from './pages/auth/ResetPassword';
+import ContactUs from './pages/ContactUs';
 
 
 
@@ -62,6 +63,7 @@ function App() {
             <Route path="/" element={<LandingPage />} />
             <Route path="/events" element={<EventsPage />} />
             <Route path="/platform" element={<PlatformPage />} />
+            <Route path="/contact" element={<ContactUs />} />
             <Route path="/signup" element={<SignupPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/oauth-redirect" element={<OAuthRedirect />} />

@@ -1,3 +1,4 @@
+// client/src/pages/landing/components/Navbar.jsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Heart, ArrowLeft, Sun, Moon, Menu, X } from 'lucide-react';
@@ -13,7 +14,8 @@ const Navbar = () => {
 
   const isEventsPage = location.pathname === '/events';
   const isPlatformPage = location.pathname === '/platform';
-  const isSubPage = isEventsPage || isPlatformPage;
+  const isContactPage = location.pathname === '/contact';
+  const isSubPage = isEventsPage || isPlatformPage || isContactPage;
 
   useEffect(() => {
     const abortController = new AbortController();
@@ -41,14 +43,14 @@ const Navbar = () => {
     return () => abortController.abort();
   }, []);
 
-  // Close mobile menu when route changes
   useEffect(() => {
     setMobileMenuOpen(false);
   }, [location.pathname]);
 
   const navLinks = [
     { name: 'Events', path: '/events', hasNotification: hasNewEvents },
-    { name: 'Platform', path: '/platform', hasNotification: false },
+    { name: 'Our Platform', path: '/platform', hasNotification: false },
+    { name: 'Contact Us', path: '/contact', hasNotification: false },
   ];
 
   return (
@@ -114,7 +116,15 @@ const Navbar = () => {
                 className="text-[10px] font-black uppercase tracking-widest text-gray-400 dark:text-white/40 hover:text-medical-red transition-colors focus:ring-2 focus:ring-medical-red focus:outline-none rounded-lg px-2 py-1"
                 aria-label="View platform information"
               >
-                Platform
+                Our Platform
+              </button>
+
+              <button
+                onClick={() => navigate('/contact')}
+                className="text-[10px] font-black uppercase tracking-widest text-gray-400 dark:text-white/40 hover:text-medical-red transition-colors focus:ring-2 focus:ring-medical-red focus:outline-none rounded-lg px-2 py-1"
+                aria-label="Contact us"
+              >
+                Contact Us
               </button>
             </>
           )}
@@ -175,7 +185,14 @@ const Navbar = () => {
             className="w-full py-3 text-left text-sm font-black uppercase tracking-widest text-gray-600 dark:text-white/60 hover:text-medical-red transition-colors focus:ring-2 focus:ring-medical-red focus:outline-none rounded-lg px-3"
             aria-label="View platform information"
           >
-            Platform
+            Our Platform
+          </button>
+          <button
+            onClick={() => navigate('/contact')}
+            className="w-full py-3 text-left text-sm font-black uppercase tracking-widest text-gray-600 dark:text-white/60 hover:text-medical-red transition-colors focus:ring-2 focus:ring-medical-red focus:outline-none rounded-lg px-3"
+            aria-label="Contact us"
+          >
+            Contact Us
           </button>
           <div className="h-px bg-gray-100 dark:bg-white/10 my-2"></div>
           <button

@@ -1,4 +1,3 @@
-// seed.js
 import prisma from '../src/config/db.js';
 import bcrypt from 'bcryptjs';
 import 'dotenv/config';
